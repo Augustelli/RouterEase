@@ -12,7 +12,17 @@ RUN opkg remove --force-depends \
       ip-full \
       kmod-mac80211 \
       dnsmasq-full \
-      iptables-mod-checksum
+      iptables-mod-checksum \
+      rpcd \
+      uhttpd \
+      uhttpd-mod-ubus \
+      luci-mod-rpc
+
+
+RUN /etc/init.d/uhttpd enable
+RUN /etc/init.d/rpcd enable
+
+
 RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true
 
 RUN echo "iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM --checksum-fill" >> /etc/firewall.user
