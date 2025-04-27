@@ -1,12 +1,38 @@
 FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
+
+#RUN opkg remove --force-depends \
+#      dnsmasq* \
+#      wpad* \
+#      iw* && \
+#    opkg update && \
+#    opkg install luci \
+#      wpad-wolfssl \
+#      iw-full \
+#      ip-full \
+#      kmod-mac80211 \
+#      dnsmasq-full \
+#      iptables-mod-checksum \
+#      rpcd \
+#      uhttpd \
+#      uhttpd-mod-ubus \
+#      luci-base \
+#      luci-app-firewall \
+#      luci-app-opkg \
+#      luci-compat \
+#      luci-app-compat \
+#      luci-mod-admin-full \
+#      luci-mod-rpc
+
+
+
 RUN opkg remove --force-depends \
       dnsmasq* \
       wpad* \
       iw* && \
     opkg update && \
-    opkg install luci \
+    opkg install \
       wpad-wolfssl \
       iw-full \
       ip-full \
@@ -16,11 +42,18 @@ RUN opkg remove --force-depends \
       rpcd \
       uhttpd \
       uhttpd-mod-ubus \
-      luci-mod-rpc
-
+      luci-base \
+      luci-mod-rpc \
+      luci-theme-bootstrap \
+      libubus-lua \
+      libuci-lua \
+      luci-lib-jsonc
 
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/rpcd enable
+
+COPY backend/controller/router-ease.lua /usr/lib/lua/luci/controller/
+COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/
 
 
 RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true
