@@ -1,0 +1,204 @@
+<%+header%>
+
+<style>
+    .config-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .filter-controls {
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .filter-controls input {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        flex-grow: 1;
+    }
+
+    .filter-controls select {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        min-width: 150px;
+    }
+
+    .config-section {
+        margin-bottom: 30px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .section-header {
+        background-color: #f5f5f5;
+        padding: 10px 15px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .section-content {
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .config-item {
+        margin-bottom: 6px;
+        padding: 4px 0;
+        border-bottom: 1px solid #f0f0f0;
+        display: flex;
+    }
+
+    .config-key {
+        font-weight: 500;
+        flex: 0 0 50%;
+        word-break: break-all;
+    }
+
+    .config-value {
+        flex: 1;
+        word-break: break-all;
+    }
+
+    .count-badge {
+        background: #0078d7;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 8px;
+        margin-left: 10px;
+        font-size: 0.8em;
+    }
+
+    .expanded .section-header {
+        background-color: #e6f3ff;
+    }
+</style>
+
+<div class="config-container">
+    <h2>UCI Configuration Viewer</h2>
+    <p>View and filter all configuration settings in the system.</p>
+
+    <div class="filter-controls">
+        <input type="text" id="filter-text" placeholder="Filter configurations...">
+        <select id="config-selector">
+            <option value="all">All Configurations</option>
+        </select>
+    </div>
+
+    <div id="loading">Loading configurations...</div>
+
+    <div id="config-content"></div>
+</div>
+
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterTextEl = document.getElementById('filter-text');
+        const configSelectorEl = document.getElementById('config-selector');
+        const loadingEl = document.getElementById('loading');
+        const configContentEl = document.getElementById('config-content');
+
+        let configData = {};
+
+        // Fetch configuration data
+        fetch('<%=url("admin/router-ease/get_uci_config")%>')
+            .then(response => response.json())
+            .then(data => {
+                configData = data;
+
+                // Populate config selector
+                Object.keys(configData).sort().forEach(config => {
+                    const option = document.createElement('option');
+                    option.value = config;
+                    option.textContent = config;
+                    configSelectorEl.appendChild(option);
+                });
+
+                // Show initial data
+                renderConfigData();
+
+                // Hide loading message
+                loadingEl.style.display = 'none';
+            })
+            .catch(error => {
+                console.error('Error fetching configuration:', error);
+                loadingEl.textContent = 'Failed to load configuration data.';
+            });
+
+        // Set up event listeners for filtering
+        filterTextEl.addEventListener('input', renderConfigData);
+        configSelectorEl.addEventListener('change', renderConfigData);
+
+        // Render configuration data based on current filters
+        function renderConfigData() {
+            const filterText = filterTextEl.value.toLowerCase();
+            const selectedConfig = configSelectorEl.value;
+
+            configContentEl.innerHTML = '';
+
+            Object.keys(configData)
+                .filter(config => selectedConfig === 'all' || config === selectedConfig)
+                .sort()
+                .forEach(config => {
+                    const configItems = Object.entries(configData[config])
+                        .filter(([key, value]) => {
+                            if (!filterText) return true;
+                            return key.toLowerCase().includes(filterText) ||
+                                value.toString().toLowerCase().includes(filterText);
+                        });
+
+                    if (configItems.length === 0) return;
+
+                    const sectionEl = document.createElement('div');
+                    sectionEl.className = 'config-section';
+
+                    const headerEl = document.createElement('div');
+                    headerEl.className = 'section-header';
+                    headerEl.innerHTML = `${config} <span class="count-badge">${configItems.length}</span>`;
+                    headerEl.addEventListener('click', () => {
+                        sectionEl.classList.toggle('expanded');
+                        contentEl.style.display = sectionEl.classList.contains('expanded') ? 'block' : 'none';
+                    });
+
+                    const contentEl = document.createElement('div');
+                    contentEl.className = 'section-content';
+                    contentEl.style.display = 'none';
+
+                    configItems
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .forEach(([key, value]) => {
+                            const itemEl = document.createElement('div');
+                            itemEl.className = 'config-item';
+
+                            const keyEl = document.createElement('div');
+                            keyEl.className = 'config-key';
+                            keyEl.textContent = key;
+
+                            const valueEl = document.createElement('div');
+                            valueEl.className = 'config-value';
+                            valueEl.textContent = value;
+
+                            itemEl.appendChild(keyEl);
+                            itemEl.appendChild(valueEl);
+                            contentEl.appendChild(itemEl);
+                        });
+
+                    sectionEl.appendChild(headerEl);
+                    sectionEl.appendChild(contentEl);
+                    configContentEl.appendChild(sectionEl);
+                });
+
+            if (configContentEl.children.length === 0) {
+                configContentEl.innerHTML = '<p>No configurations match your filter criteria.</p>';
+            }
+        }
+    });
+</script>
+
+<%+footer%>

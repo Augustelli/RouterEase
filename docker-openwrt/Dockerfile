@@ -44,7 +44,6 @@ RUN opkg remove --force-depends \
       uhttpd-mod-ubus \
       luci-base \
       luci-mod-rpc \
-      luci-theme-bootstrap \
       libubus-lua \
       libuci-lua \
       luci-lib-jsonc \
@@ -53,7 +52,12 @@ RUN opkg remove --force-depends \
       luci-app-firewall \
       luci-app-vnstat \
       luci-app-sqm \
+      luci-app-qos \
       luci-app-nft-qos \
+      luci-app-adblock \
+      luci-app-samba4 \
+      luci-app-minidlna \
+      luci-theme-material \
       qrencode
 
 

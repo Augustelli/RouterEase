@@ -33,21 +33,32 @@
         display: inline-block;
         width: 20px;
         height: 20px;
-        border: 3px solid rgba(255,255,255,.3);
+        border: 3px solid rgba(255, 255, 255, .3);
         border-radius: 50%;
         border-top-color: #fff;
         animation: spin 1s linear infinite;
         margin-right: 10px;
     }
 
+    .error-message {
+        color: #d32f2f;
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #ffebee;
+        border-radius: 4px;
+        border-left: 4px solid #d32f2f;
+    }
+
     @keyframes spin {
-        to { transform: rotate(360deg); }
+        to {
+            transform: rotate(360deg);
+        }
     }
 </style>
 
 <div class="speed-test-container">
     <h2>Internet Speed Test</h2>
-    <p>Test your router's internet connection speed.</p>
+    <p>Test your router's internet connection speed using speedtest-netperf.</p>
 
     <button id="run-test" class="test-btn">Run Speed Test</button>
 
@@ -57,32 +68,52 @@
         <div class="speed-results">
             <p><strong>Download Speed:</strong> <span id="download-speed">-</span></p>
             <p><strong>Upload Speed:</strong> <span id="upload-speed">-</span></p>
+            <p><strong>Latency:</strong> <span id="latency">-</span></p>
+            <p><strong>Server:</strong> <span id="server">-</span></p>
+        </div>
+        <div id="error-container" class="error-message" style="display: none;">
+            <strong>Error:</strong> <span id="error-message"></span>
         </div>
     </div>
 </div>
 
 <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const runTestBtn = document.getElementById('run-test');
         const resultsDiv = document.getElementById('results');
         const downloadSpeedEl = document.getElementById('download-speed');
         const uploadSpeedEl = document.getElementById('upload-speed');
+        const latencyEl = document.getElementById('latency');
+        const serverEl = document.getElementById('server');
         const timestampEl = document.getElementById('timestamp');
+        const errorContainerEl = document.getElementById('error-container');
+        const errorMessageEl = document.getElementById('error-message');
 
-        runTestBtn.addEventListener('click', function() {
+        runTestBtn.addEventListener('click', function () {
             // Show loading state
             runTestBtn.disabled = true;
             runTestBtn.innerHTML = '<span class="spinner"></span>Testing...';
             resultsDiv.style.display = 'none';
+            errorContainerEl.style.display = 'none';
 
             // Run the speed test
             fetch('<%=url("admin/router-ease/run_speed_test")%>')
                 .then(response => response.json())
                 .then(data => {
                     // Update results
-                    downloadSpeedEl.textContent = data.download;
-                    uploadSpeedEl.textContent = data.upload;
+                    downloadSpeedEl.textContent = data.download || 'N/A';
+                    uploadSpeedEl.textContent = data.upload || 'N/A';
+                    latencyEl.textContent = data.latency || 'N/A';
+                    serverEl.textContent = data.server || 'Unknown';
                     timestampEl.textContent = 'Test performed at: ' + data.timestamp;
+
+                    // Show error if present
+                    if (data.error) {
+                        errorMessageEl.textContent = data.error;
+                        errorContainerEl.style.display = 'block';
+                    } else {
+                        errorContainerEl.style.display = 'none';
+                    }
 
                     // Reset button and show results
                     runTestBtn.disabled = false;
@@ -91,7 +122,10 @@
                 })
                 .catch(error => {
                     console.error('Error running speed test:', error);
-                    alert('Failed to run speed test. Please try again.');
+                    errorMessageEl.textContent = 'Network error: ' + error.message;
+                    errorContainerEl.style.display = 'block';
+                    resultsDiv.style.display = 'block';
+
                     runTestBtn.disabled = false;
                     runTestBtn.textContent = 'Run Speed Test';
                 });
