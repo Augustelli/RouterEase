@@ -47,7 +47,16 @@ RUN opkg remove --force-depends \
       luci-theme-bootstrap \
       libubus-lua \
       libuci-lua \
-      luci-lib-jsonc
+      luci-lib-jsonc \
+      speedtest-netperf \
+      luci-app-nlbwmon \
+      luci-app-firewall \
+      luci-app-vnstat \
+      luci-app-sqm \
+      luci-app-nft-qos \
+      qrencode
+
+
 
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/rpcd enable

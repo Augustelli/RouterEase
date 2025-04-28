@@ -1,0 +1,102 @@
+<%+header%>
+
+<style>
+    .speed-test-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .result-card {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 20px;
+        background-color: #f9f9f9;
+    }
+
+    .test-btn {
+        margin-top: 10px;
+        padding: 8px 16px;
+        background-color: #0078d7;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .test-btn:disabled {
+        background-color: #ccc;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="speed-test-container">
+    <h2>Internet Speed Test</h2>
+    <p>Test your router's internet connection speed.</p>
+
+    <button id="run-test" class="test-btn">Run Speed Test</button>
+
+    <div id="results" class="result-card" style="display: none;">
+        <h3>Speed Test Results</h3>
+        <div id="timestamp"></div>
+        <div class="speed-results">
+            <p><strong>Download Speed:</strong> <span id="download-speed">-</span></p>
+            <p><strong>Upload Speed:</strong> <span id="upload-speed">-</span></p>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const runTestBtn = document.getElementById('run-test');
+        const resultsDiv = document.getElementById('results');
+        const downloadSpeedEl = document.getElementById('download-speed');
+        const uploadSpeedEl = document.getElementById('upload-speed');
+        const timestampEl = document.getElementById('timestamp');
+
+        runTestBtn.addEventListener('click', function() {
+            // Show loading state
+            runTestBtn.disabled = true;
+            runTestBtn.innerHTML = '<span class="spinner"></span>Testing...';
+            resultsDiv.style.display = 'none';
+
+            // Run the speed test
+            fetch('<%=url("admin/router-ease/run_speed_test")%>')
+                .then(response => response.json())
+                .then(data => {
+                    // Update results
+                    downloadSpeedEl.textContent = data.download;
+                    uploadSpeedEl.textContent = data.upload;
+                    timestampEl.textContent = 'Test performed at: ' + data.timestamp;
+
+                    // Reset button and show results
+                    runTestBtn.disabled = false;
+                    runTestBtn.textContent = 'Run Speed Test Again';
+                    resultsDiv.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error running speed test:', error);
+                    alert('Failed to run speed test. Please try again.');
+                    runTestBtn.disabled = false;
+                    runTestBtn.textContent = 'Run Speed Test';
+                });
+        });
+    });
+</script>
+
+<%+footer%>

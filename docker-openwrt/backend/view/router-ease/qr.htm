@@ -1,0 +1,126 @@
+<%+header%>
+
+<style>
+    .qr-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .qr-code {
+        margin: 20px 0;
+        text-align: center;
+    }
+
+    .wifi-details {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background-color: #f9f9f9;
+    }
+
+    .qr-card {
+        display: inline-block;
+        padding: 10px;
+        background-color: white;
+        border: 1px solid #ddd;
+    }
+</style>
+
+<div class="qr-container">
+    <h2>WiFi Connection QR Code</h2>
+    <p>Scan this QR code with your phone to connect to the WiFi network.</p>
+
+    <div id="loading">Loading WiFi information...</div>
+
+    <div id="wifi-content" style="display: none;">
+        <div class="qr-code">
+            <div id="qrcode" class="qr-card"></div>
+        </div>
+
+        <div class="wifi-details">
+            <h3>Network Details</h3>
+            <p><strong>SSID:</strong> <span id="wifi-ssid">-</span></p>
+            <p><strong>Security Type:</strong> <span id="wifi-encryption">-</span></p>
+            <p><strong>Password:</strong> <span id="wifi-password">********</span> <button id="show-password">Show</button></p>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code library -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const loadingEl = document.getElementById('loading');
+        const wifiContentEl = document.getElementById('wifi-content');
+        const ssidEl = document.getElementById('wifi-ssid');
+        const encryptionEl = document.getElementById('wifi-encryption');
+        const passwordEl = document.getElementById('wifi-password');
+        const showPasswordBtn = document.getElementById('show-password');
+        const qrcodeEl = document.getElementById('qrcode');
+
+        let wifiInfo = {};
+
+        // Fetch WiFi information
+        fetch('<%=url("admin/router-ease/get_wifi_info")%>')
+            .then(response => response.json())
+            .then(data => {
+                wifiInfo = data;
+
+                // Update WiFi details
+                ssidEl.textContent = data.ssid;
+                encryptionEl.textContent = data.encryption;
+
+                // Generate QR code
+                const qrText = generateWifiQrText(data.ssid, data.encryption, data.key);
+                generateQRCode(qrText);
+
+                // Show content
+                loadingEl.style.display = 'none';
+                wifiContentEl.style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error fetching WiFi info:', error);
+                loadingEl.textContent = 'Failed to load WiFi information.';
+            });
+
+        // Show/hide password
+        showPasswordBtn.addEventListener('click', function() {
+            if (passwordEl.textContent === '********') {
+                passwordEl.textContent = wifiInfo.key;
+                showPasswordBtn.textContent = 'Hide';
+            } else {
+                passwordEl.textContent = '********';
+                showPasswordBtn.textContent = 'Show';
+            }
+        });
+
+        // Generate WiFi QR code text
+        function generateWifiQrText(ssid, encryption, password) {
+            // Convert encryption type to QR format
+            let auth = 'nopass';
+            if (encryption.includes('wpa')) {
+                auth = 'WPA';
+            } else if (encryption.includes('wep')) {
+                auth = 'WEP';
+            }
+
+            // Format: WIFI:S:<SSID>;T:<AUTH>;P:<PASSWORD>;H:<HIDDEN>;;
+            return `WIFI:S:${ssid};T:${auth};P:${password};H:false;;`;
+        }
+
+        // Generate QR code
+        function generateQRCode(text) {
+            const typeNumber = 0;
+            const errorCorrectionLevel = 'L';
+            const qr = qrcode(typeNumber, errorCorrectionLevel);
+            qr.addData(text);
+            qr.make();
+            qrcodeEl.innerHTML = qr.createImgTag(5);
+        }
+    });
+</script>
+
+<%+footer%>

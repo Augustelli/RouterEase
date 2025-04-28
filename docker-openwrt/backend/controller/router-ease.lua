@@ -7,10 +7,15 @@
         -- Add submenu entries
         entry({"admin", "router-ease", "network"}, template("router-ease/network"), "Network Settings", 1)
         entry({"admin", "router-ease", "system"}, template("router-ease/system"), "System Settings", 2)
+        entry({"admin", "router-ease", "device-information"}, template("router-ease/system"), "Devices Information", 3)
+        entry({"admin", "router-ease", "speed-test"}, template("router-ease/speed-test"), "Speed Test", 4)
+        entry({"admin", "router-ease", "qr"}, template("router-ease/speed-test"), "QR", 5|)
 
         -- API endpoints for AJAX calls
         entry({"admin", "router-ease", "get_network"}, call("get_network_info"))
         entry({"admin", "router-ease", "update_network"}, call("update_network"))
+        entry({"admin", "router-ease", "run_speed_test"}, call("run_speed_test"))
+        entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"))
     end
 
     function get_network_info()
@@ -62,3 +67,57 @@
         http.prepare_content("application/json")
         http.write_json({success = true})
     end
+
+function run_speed_test()
+    local http = require("luci.http")
+    local result = {}
+
+    -- Run download speed test using wget
+    local dl_cmd = io.popen("wget -O /dev/null http://speedtest.wdc01.softlayer.com/downloads/test10.zip 2>&1 | grep -i 'saved'")
+    local dl_output = dl_cmd:read("*a")
+    dl_cmd:close()
+
+    -- Extract speed from wget output
+    result.download = dl_output:match("%(([%d%.]+%s+[KMG]B/s)%)") or "Test failed"
+
+    -- Simple upload test (not as accurate)
+    local ul_cmd = io.popen("dd if=/dev/zero bs=1M count=8 2>/dev/null | curl -s -X POST -T - https://httpbin.org/anything >/dev/null 2>&1 && echo 'Success'")
+    local ul_output = ul_cmd:read("*a")
+    ul_cmd:close()
+
+    if ul_output:match("Success") then
+        result.upload = "~2-5 MB/s (estimate)"
+    else
+        result.upload = "Test failed"
+    end
+
+    result.timestamp = os.date("%Y-%m-%d %H:%M:%S")
+
+    http.prepare_content("application/json")
+    http.write_json(result)
+end
+
+-- Get WiFi information for QR code
+function get_wifi_info()
+    local uci = require("luci.model.uci").cursor()
+    local http = require("luci.http")
+    local wifi_info = {}
+
+    -- Get wireless configurations
+    local wireless = uci:get_all("wireless")
+
+    -- Find the first wireless interface that's not disabled
+    for k, v in pairs(wireless) do
+        if v[".type"] == "wifi-iface" and v.disabled ~= "1" then
+            wifi_info = {
+                ssid = v.ssid or "",
+                encryption = v.encryption or "",
+                key = v.key or ""
+            }
+            break
+        end
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(wifi_info)
+end
