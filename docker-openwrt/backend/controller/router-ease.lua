@@ -2,7 +2,7 @@
 
     function index()
         -- Create a top-level menu entry
-        entry({"admin", "router-ease"}, firstchild(), "My OpenWRT", 60).dependent=false
+        entry({"admin", "router-ease"}, firstchild(), "Router Ease GUI", 60).dependent=false
 
         -- Add submenu entries
         entry({"admin", "router-ease", "network"}, template("router-ease/network"), "Network Settings", 1)

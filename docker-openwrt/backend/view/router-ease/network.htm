@@ -38,9 +38,9 @@
 </div>
 
 <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         function fetchNetworkData() {
-            fetch('<%=url("admin/myopenwrt/get_network")%>')
+            fetch('<%=url("admin/router-ease/get_network")%>')
                 .then(response => response.json())
                 .then(data => {
                     // Fill form with network data
@@ -67,7 +67,7 @@
         fetchNetworkData();
 
         // Handle form submission for WAN
-        document.getElementById('save-wan').addEventListener('click', function() {
+        document.getElementById('save-wan').addEventListener('click', function () {
             const data = {
                 section: 'wan',
                 options: {
@@ -77,27 +77,27 @@
                 }
             };
 
-            fetch('<%=url("admin/myopenwrt/update_network")%>', {
+            fetch('<%=url("admin/router-ease/update_network")%>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert('WAN settings updated successfully');
-                } else {
-                    alert('Failed to update WAN settings');
-                }
-            })
-            .catch(error => {
-                console.error('Error updating WAN settings:', error);
-                alert('Error updating WAN settings');
-            });
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('WAN settings updated successfully');
+                    } else {
+                        alert('Failed to update WAN settings');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating WAN settings:', error);
+                    alert('Error updating WAN settings');
+                });
         });
 
         // Handle form submission for LAN
-        document.getElementById('save-lan').addEventListener('click', function() {
+        document.getElementById('save-lan').addEventListener('click', function () {
             const data = {
                 section: 'lan',
                 options: {
@@ -106,23 +106,23 @@
                 }
             };
 
-            fetch('<%=url("admin/myopenwrt/update_network")%>', {
+            fetch('<%=url("admin/router-ease/update_network")%>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert('LAN settings updated successfully');
-                } else {
-                    alert('Failed to update LAN settings');
-                }
-            })
-            .catch(error => {
-                console.error('Error updating LAN settings:', error);
-                alert('Error updating LAN settings');
-            });
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('LAN settings updated successfully');
+                    } else {
+                        alert('Failed to update LAN settings');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating LAN settings:', error);
+                    alert('Error updating LAN settings');
+                });
         });
     });
 </script>

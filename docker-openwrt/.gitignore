@@ -4,5 +4,6 @@ openwrt.conf
 *.tar.gz
 *.img
 *.img.gz
+openwrt.conf
 etc/config/*
 !etc/config/*.tpl
