@@ -1,52 +1,55 @@
 <%+header%>
 
-<style>
-    .speed-test-container {
-        max-width: 800px;
-        margin: 0 auto;
+<style type="text/css">
+    .speedtest-container {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         padding: 20px;
+        margin-bottom: 20px;
     }
 
-    .result-card {
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 15px;
-        margin-top: 20px;
-        background-color: #f9f9f9;
+    .speedtest-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
     }
 
-    .test-btn {
-        margin-top: 10px;
-        padding: 8px 16px;
-        background-color: #0078d7;
+    .speedtest-button {
+        background-color: #0069d9;
         color: white;
         border: none;
         border-radius: 4px;
+        padding: 8px 16px;
+        font-size: 14px;
         cursor: pointer;
+        transition: background-color 0.3s;
     }
 
-    .test-btn:disabled {
-        background-color: #ccc;
+    .speedtest-button:hover {
+        background-color: #0051a8;
+    }
+
+    .speedtest-button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .status-container {
+        text-align: center;
+        padding: 30px 0;
+        display: none;
     }
 
     .spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255, 255, 255, .3);
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left-color: #0069d9;
         border-radius: 50%;
-        border-top-color: #fff;
+        width: 40px;
+        height: 40px;
         animation: spin 1s linear infinite;
-        margin-right: 10px;
-    }
-
-    .error-message {
-        color: #d32f2f;
-        margin-top: 10px;
-        padding: 10px;
-        background-color: #ffebee;
-        border-radius: 4px;
-        border-left: 4px solid #d32f2f;
+        margin: 0 auto 15px;
     }
 
     @keyframes spin {
@@ -54,82 +57,143 @@
             transform: rotate(360deg);
         }
     }
+
+    .results-container {
+        display: none;
+    }
+
+    .result-cards {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .result-card {
+        flex: 1;
+        min-width: 150px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .result-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #0069d9;
+        margin: 10px 0;
+    }
+
+    .result-label {
+        font-size: 14px;
+        color: #6c757d;
+    }
+
+    @media (max-width: 768px) {
+        .result-cards {
+            flex-direction: column;
+        }
+    }
 </style>
 
-<div class="speed-test-container">
-    <h2>Internet Speed Test</h2>
-    <p>Test your router's internet connection speed using speedtest-netperf.</p>
+<div class="cbi-map">
+    <h2 name="content"><%:Network Speed Test%></h2>
 
-    <button id="run-test" class="test-btn">Run Speed Test</button>
-
-    <div id="results" class="result-card" style="display: none;">
-        <h3>Speed Test Results</h3>
-        <div id="timestamp"></div>
-        <div class="speed-results">
-            <p><strong>Download Speed:</strong> <span id="download-speed">-</span></p>
-            <p><strong>Upload Speed:</strong> <span id="upload-speed">-</span></p>
-            <p><strong>Latency:</strong> <span id="latency">-</span></p>
-            <p><strong>Server:</strong> <span id="server">-</span></p>
+    <div class="speedtest-container">
+        <div class="speedtest-header">
+            <h3><%:Test your connection speed%></h3>
+            <button id="start-test" class="speedtest-button"><%:Start Speed Test%></button>
         </div>
-        <div id="error-container" class="error-message" style="display: none;">
-            <strong>Error:</strong> <span id="error-message"></span>
+
+        <div id="test-status" class="status-container">
+            <div class="spinner"></div>
+            <p><%:Running speed test. This may take up to 60 seconds...%></p>
+        </div>
+
+        <div id="results" class="results-container">
+            <h3><%:Test Results%></h3>
+            <div class="result-cards">
+                <div class="result-card">
+                    <div class="result-label"><%:Download Speed%></div>
+                    <div class="result-value"><span id="download">-</span> <span class="unit">Mbps</span></div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label"><%:Upload Speed%></div>
+                    <div class="result-value"><span id="upload">-</span> <span class="unit">Mbps</span></div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label"><%:Ping Latency%></div>
+                    <div class="result-value"><span id="ping">-</span> <span class="unit">ms</span></div>
+                </div>
+            </div>
+            <div id="warning-message" style="color: #e74c3c; margin-top: 15px; display: none;"></div>
         </div>
     </div>
 </div>
 
 <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function () {
-        const runTestBtn = document.getElementById('run-test');
-        const resultsDiv = document.getElementById('results');
-        const downloadSpeedEl = document.getElementById('download-speed');
-        const uploadSpeedEl = document.getElementById('upload-speed');
-        const latencyEl = document.getElementById('latency');
-        const serverEl = document.getElementById('server');
-        const timestampEl = document.getElementById('timestamp');
-        const errorContainerEl = document.getElementById('error-container');
-        const errorMessageEl = document.getElementById('error-message');
+    document.getElementById('start-test').addEventListener('click', function () {
+        var statusDiv = document.getElementById('test-status');
+        var resultsDiv = document.getElementById('results');
+        var startButton = document.getElementById('start-test');
+        var warningMessage = document.getElementById('warning-message');
 
-        runTestBtn.addEventListener('click', function () {
-            // Show loading state
-            runTestBtn.disabled = true;
-            runTestBtn.innerHTML = '<span class="spinner"></span>Testing...';
-            resultsDiv.style.display = 'none';
-            errorContainerEl.style.display = 'none';
+        statusDiv.style.display = 'block';
+        resultsDiv.style.display = 'none';
+        warningMessage.style.display = 'none';
+        startButton.disabled = true;
 
-            // Run the speed test
-            fetch('<%=url("admin/router-ease/run_speed_test")%>')
-                .then(response => response.json())
-                .then(data => {
-                    // Update results
-                    downloadSpeedEl.textContent = data.download || 'N/A';
-                    uploadSpeedEl.textContent = data.upload || 'N/A';
-                    latencyEl.textContent = data.latency || 'N/A';
-                    serverEl.textContent = data.server || 'Unknown';
-                    timestampEl.textContent = 'Test performed at: ' + data.timestamp;
+        // Start the test
+        fetch('/cgi-bin/luci/admin/network/speedtest/run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+            .then(response => response.json())
+            .then(() => {
+                // Poll for results
+                var checkStatus = setInterval(function () {
+                    fetch('/cgi-bin/luci/admin/network/speedtest/status')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'complete') {
+                                clearInterval(checkStatus);
+                                statusDiv.style.display = 'none';
+                                resultsDiv.style.display = 'block';
+                                startButton.disabled = false;
 
-                    // Show error if present
-                    if (data.error) {
-                        errorMessageEl.textContent = data.error;
-                        errorContainerEl.style.display = 'block';
-                    } else {
-                        errorContainerEl.style.display = 'none';
-                    }
+                                // Update results
+                                document.getElementById('ping').textContent =
+                                    ((data.data.ping || {}).median || 0).toFixed(1);
+                                document.getElementById('download').textContent =
+                                    ((data.data.download || {}).bps_mean / 1000000 || 0).toFixed(2);
+                                document.getElementById('upload').textContent =
+                                    ((data.data.upload || {}).bps_mean / 1000000 || 0).toFixed(2);
 
-                    // Reset button and show results
-                    runTestBtn.disabled = false;
-                    runTestBtn.textContent = 'Run Speed Test Again';
-                    resultsDiv.style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error running speed test:', error);
-                    errorMessageEl.textContent = 'Network error: ' + error.message;
-                    errorContainerEl.style.display = 'block';
-                    resultsDiv.style.display = 'block';
-
-                    runTestBtn.disabled = false;
-                    runTestBtn.textContent = 'Run Speed Test';
-                });
-        });
+                                if (data.warning) {
+                                    warningMessage.textContent = data.warning;
+                                    warningMessage.style.display = 'block';
+                                }
+                            } else if (data.status === 'error') {
+                                clearInterval(checkStatus);
+                                statusDiv.style.display = 'none';
+                                startButton.disabled = false;
+                                alert('Error running speed test: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            clearInterval(checkStatus);
+                            statusDiv.style.display = 'none';
+                            startButton.disabled = false;
+                            console.error('Error checking status:', error);
+                        });
+                }, 2000);
+            })
+            .catch(error => {
+                statusDiv.style.display = 'none';
+                startButton.disabled = false;
+                console.error('Error starting test:', error);
+            });
     });
 </script>
 

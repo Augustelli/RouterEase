@@ -43,7 +43,9 @@
             <h3>Network Details</h3>
             <p><strong>SSID:</strong> <span id="wifi-ssid">-</span></p>
             <p><strong>Security Type:</strong> <span id="wifi-encryption">-</span></p>
-            <p><strong>Password:</strong> <span id="wifi-password">********</span> <button id="show-password">Show</button></p>
+            <p><strong>Password:</strong> <span id="wifi-password">********</span>
+                <button id="show-password">Show</button>
+            </p>
         </div>
     </div>
 </div>
@@ -52,7 +54,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 
 <script type="text/javascript">
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const loadingEl = document.getElementById('loading');
         const wifiContentEl = document.getElementById('wifi-content');
         const ssidEl = document.getElementById('wifi-ssid');
@@ -87,7 +89,7 @@
             });
 
         // Show/hide password
-        showPasswordBtn.addEventListener('click', function() {
+        showPasswordBtn.addEventListener('click', function () {
             if (passwordEl.textContent === '********') {
                 passwordEl.textContent = wifiInfo.key;
                 showPasswordBtn.textContent = 'Hide';
@@ -99,11 +101,15 @@
 
         // Generate WiFi QR code text
         function generateWifiQrText(ssid, encryption, password) {
-            // Convert encryption type to QR format
+            // Convert OpenWRT encryption type to QR format
             let auth = 'nopass';
-            if (encryption.includes('wpa')) {
+            if (encryption.toLowerCase().includes('wpa2') ||
+                encryption.toLowerCase().includes('psk2')) {
+                auth = 'WPA2';
+            } else if (encryption.toLowerCase().includes('wpa') ||
+                encryption.toLowerCase().includes('psk')) {
                 auth = 'WPA';
-            } else if (encryption.includes('wep')) {
+            } else if (encryption.toLowerCase().includes('wep')) {
                 auth = 'WEP';
             }
 

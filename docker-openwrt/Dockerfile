@@ -36,6 +36,7 @@ RUN opkg remove --force-depends \
       wpad-wolfssl \
       iw-full \
       ip-full \
+      cgi-io \
       kmod-mac80211 \
       dnsmasq-full \
       iptables-mod-checksum \
@@ -50,19 +51,18 @@ RUN opkg remove --force-depends \
       speedtest-netperf \
       luci-app-nlbwmon \
       luci-app-firewall \
-      luci-app-vnstat \
       luci-app-sqm \
       luci-app-qos \
       luci-app-nft-qos \
       luci-app-adblock \
-      luci-app-samba4 \
-      luci-app-minidlna \
+      luci-compat \
       luci-theme-material \
       qrencode
 
 
 
 RUN /etc/init.d/uhttpd enable
+RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
 
 COPY backend/controller/router-ease.lua /usr/lib/lua/luci/controller/

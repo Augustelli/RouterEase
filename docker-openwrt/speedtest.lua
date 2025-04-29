@@ -1,23 +1,10 @@
-module("luci.controller.router-ease", package.seeall)
+module("luci.controller.speedtest", package.seeall)
 
 function index()
-    -- Create main Router-Ease menu entry with two sub-features
-    entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60).dependent=false
-
-    -- Network tools as top-level category
-    entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
-
-    -- Add both features as submenu items under Network Tools
-    entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
-    entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
-
-    -- API endpoints for both features
-    entry({"admin", "router-ease", "run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
-    entry({"admin", "router-ease", "speedtest_status"}, call("action_status"), nil).leaf = true
-    entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
+    entry({"admin", "network", "speedtest"}, template("router-ease/speedtest"), _("Speed Test"), 90)
+    entry({"admin", "network", "speedtest", "run"}, call("action_run_speedtest"), nil)
+    entry({"admin", "network", "speedtest", "status"}, call("action_status"), nil)
 end
-
---- Speed Test Functionality
 
 function action_run_speedtest()
     local sys = require "luci.sys"
@@ -139,24 +126,4 @@ function action_status()
             message = "No test results found"
         })
     end
-end
-
---- QR Code Functionality
-function get_wifi_info()
-    local uci = require "luci.model.uci".cursor()
-    local json = require "luci.jsonc"
-    local result = {}
-
-    -- Get primary WiFi network info
-    uci:foreach("wireless", "wifi-iface", function(s)
-        if s.mode == "ap" and s.network == "lan" then
-            result.ssid = s.ssid or ""
-            result.key = s.key or ""
-            result.encryption = s.encryption or "none"
-            return false  -- Stop after finding the first AP
-        end
-    end)
-
-    luci.http.prepare_content("application/json")
-    luci.http.write(json.stringify(result))
 end
