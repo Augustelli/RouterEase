@@ -49,9 +49,11 @@ RUN opkg remove --force-depends \
       libuci-lua \
       luci-lib-jsonc \
       speedtest-netperf \
-      luci-app-nlbwmon \
+      nlbwon \
+      iwinfo \
       luci-app-firewall \
       luci-app-sqm \
+      luci-app-nlbwon \
       luci-app-qos \
       luci-app-nft-qos \
       luci-app-adblock \
@@ -63,6 +65,7 @@ RUN opkg remove --force-depends \
 
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
+RUN /etc/init.d/nlbwon enable
 RUN /etc/init.d/rpcd enable
 
 COPY backend/controller/router-ease.lua /usr/lib/lua/luci/controller/

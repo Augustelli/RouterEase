@@ -1,0 +1,308 @@
+<%+header%>
+
+<h2>Connected Devices Dashboard</h2>
+
+<style>
+    .device-dashboard {
+        margin: 20px 0;
+    }
+    .card {
+        background: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+        padding: 15px;
+    }
+    .filters {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .device-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .device-table th, .device-table td {
+        padding: 8px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    .device-table th {
+        background-color: #f5f5f5;
+        cursor: pointer;
+    }
+    .device-table th:hover {
+        background-color: #e5e5e5;
+    }
+    .wifi-signal {
+        display: inline-block;
+        width: 50px;
+        height: 10px;
+        background: #eee;
+        position: relative;
+    }
+    .wifi-signal-bar {
+        height: 100%;
+        background: #4CAF50;
+        position: absolute;
+        left: 0;
+    }
+    .connection-type {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .connection-icon {
+        width: 20px;
+        height: 20px;
+        display: inline-block;
+    }
+    .wifi-icon {
+        color: #2196F3;
+    }
+    .wired-icon {
+        color: #4CAF50;
+    }
+    .refresh-button {
+        background: #0099CC;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .refresh-button:hover {
+        background: #007AAB;
+    }
+    .traffic-data {
+        white-space: nowrap;
+    }
+</style>
+
+<div class="device-dashboard">
+    <div class="card">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="connection-filter">Connection:</label>
+                <select id="connection-filter">
+                    <option value="all">All</option>
+                    <option value="wifi">WiFi</option>
+                    <option value="wired">Wired</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="search-filter">Search:</label>
+                <input type="text" id="search-filter" placeholder="Name, IP, MAC...">
+            </div>
+
+            <button class="refresh-button" id="refresh-button">
+                Refresh
+            </button>
+        </div>
+
+        <div id="device-count">Loading devices...</div>
+
+        <table class="device-table">
+            <thead>
+                <tr>
+                    <th data-sort="hostname">Device Name</th>
+                    <th data-sort="ip">IP Address</th>
+                    <th data-sort="mac">MAC Address</th>
+                    <th data-sort="connection_type">Connection</th>
+                    <th data-sort="interface">Interface</th>
+                    <th data-sort="signal">Signal</th>
+                    <th data-sort="rx_bytes">Received</th>
+                    <th data-sort="tx_bytes">Transmitted</th>
+                    <th data-sort="last_seen">Last Seen</th>
+                </tr>
+            </thead>
+            <tbody id="device-table-body">
+                <!-- Data will be populated via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Format bytes to human readable format
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+    }
+
+    // Format timestamp to relative time
+    function timeAgo(timestamp) {
+        const seconds = Math.floor((new Date() - new Date(timestamp * 1000)) / 1000);
+
+        if (seconds < 60) return seconds + ' seconds ago';
+        if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+        return Math.floor(seconds / 86400) + ' days ago';
+    }
+
+    // Connection type icons
+    const connectionIcons = {
+        wifi: '<svg class="connection-icon wifi-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,21L15.6,16.2C14.6,15.45 13.35,15 12,15C10.65,15 9.4,15.45 8.4,16.2L12,21M12,3C7.95,3 4.21,4.34 1.2,6.6L3,9C5.5,7.12 8.62,6 12,6C15.38,6 18.5,7.12 21,9L22.8,6.6C19.79,4.34 16.05,3 12,3M12,9C9.3,9 6.81,9.89 4.8,11.4L6.6,13.8C8.1,12.67 9.97,12 12,12C14.03,12 15.9,12.67 17.4,13.8L19.2,11.4C17.19,9.89 14.7,9 12,9Z"/></svg>',
+        wired: '<svg class="connection-icon wired-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M11,3V7H13V3H11M8,4V11H16V4H14V8H10V4H8M10,12V22H14V12H10Z"/></svg>'
+    };
+
+    // Get DOM elements
+    const deviceTableBody = document.getElementById('device-table-body');
+    const deviceCount = document.getElementById('device-count');
+    const connectionFilter = document.getElementById('connection-filter');
+    const searchFilter = document.getElementById('search-filter');
+    const refreshButton = document.getElementById('refresh-button');
+
+    // State variables
+    let devices = [];
+    let sortField = 'hostname';
+    let sortDirection = 'asc';
+
+    // Apply filters to devices
+    function applyFilters() {
+        const connection = connectionFilter.value;
+        const search = searchFilter.value.toLowerCase();
+
+        return devices.filter(device => {
+            // Connection type filter
+            if (connection !== 'all' && device.connection_type !== connection) {
+                return false;
+            }
+
+            // Search filter
+            if (search && !(
+                device.hostname.toLowerCase().includes(search) ||
+                device.ip.toLowerCase().includes(search) ||
+                device.mac.toLowerCase().includes(search)
+            )) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    // Sort devices
+    function sortDevices(devices) {
+        return devices.sort((a, b) => {
+            let valA = a[sortField];
+            let valB = b[sortField];
+
+            // Ensure numeric comparison for numbers
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return sortDirection === 'asc' ? valA - valB : valB - valA;
+            }
+
+            // String comparison
+            valA = String(valA || '').toLowerCase();
+            valB = String(valB || '').toLowerCase();
+
+            if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Render devices table
+    function renderDevices() {
+        // Apply filters and sort
+        const filteredDevices = sortDevices(applyFilters());
+
+        // Update device count
+        deviceCount.textContent = `Showing ${filteredDevices.length} of ${devices.length} devices`;
+
+        // Clear the table
+        deviceTableBody.innerHTML = '';
+
+        // Add devices to table
+        filteredDevices.forEach(device => {
+            const row = document.createElement('tr');
+
+            // Format signal display
+            const signalPercent = device.signal ? Math.min(100, Math.max(0, (device.signal + 95) * 1.5)) : 0;
+            const signalHtml = device.connection_type === 'wifi'
+                ? `<div class="wifi-signal">
+                      <div class="wifi-signal-bar" style="width: ${signalPercent}%"></div>
+                   </div> ${device.signal} dBm`
+                : '—';
+
+            // Connection type with icon
+            const connectionHtml = `<span class="connection-type">
+                ${connectionIcons[device.connection_type] || ''}
+                ${device.connection_type === 'wifi' ? (device.essid || 'Unknown') : 'Ethernet'}
+            </span>`;
+
+            row.innerHTML = `
+                <td>${device.hostname}</td>
+                <td>${device.ip}</td>
+                <td>${device.mac}</td>
+                <td>${connectionHtml}</td>
+                <td>${device.interface || '—'}</td>
+                <td>${signalHtml}</td>
+                <td class="traffic-data">${formatBytes(device.rx_bytes)}</td>
+                <td class="traffic-data">${formatBytes(device.tx_bytes)}</td>
+                <td>${timeAgo(device.last_seen)}</td>
+            `;
+
+            deviceTableBody.appendChild(row);
+        });
+    }
+
+    // Fetch devices data
+    function fetchDevices() {
+        deviceCount.textContent = 'Loading devices...';
+
+        fetch('/cgi-bin/luci/admin/router-ease/get_connected_devices')
+            .then(response => response.json())
+            .then(data => {
+                devices = data;
+                renderDevices();
+            })
+            .catch(error => {
+                console.error('Error fetching devices:', error);
+                deviceCount.textContent = 'Error loading devices';
+            });
+    }
+
+    // Event listeners
+    connectionFilter.addEventListener('change', renderDevices);
+    searchFilter.addEventListener('input', renderDevices);
+    refreshButton.addEventListener('click', fetchDevices);
+
+    // Sort columns when clicked
+    document.querySelectorAll('.device-table th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const field = th.dataset.sort;
+
+            // Toggle direction if clicking same column
+            if (field === sortField) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDirection = 'asc';
+            }
+
+            renderDevices();
+        });
+    });
+
+    // Initial load
+    fetchDevices();
+
+    // Auto-refresh every 30 seconds
+    setInterval(fetchDevices, 30000);
+</script>
+
+<%+footer%>
