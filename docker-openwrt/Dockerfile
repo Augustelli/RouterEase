@@ -63,10 +63,9 @@ RUN opkg remove --force-depends \
 
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
-RUN #/etc/init.d/nlbwon enable
 RUN /etc/init.d/rpcd enable
 
-COPY backend/controller/router-ease.lua /usr/lib/lua/luci/controller/
+COPY backend/controller/ /usr/lib/lua/luci/controller/
 COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/
 
 
@@ -79,6 +78,5 @@ ARG ts
 ARG version
 LABEL org.opencontainers.image.created=$ts
 LABEL org.opencontainers.image.version=$version
-LABEL org.opencontainers.image.source=https://github.com/oofnikj/docker-openwrt
 
 CMD [ "/sbin/init" ]
