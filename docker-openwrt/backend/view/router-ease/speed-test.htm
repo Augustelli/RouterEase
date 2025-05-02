@@ -145,7 +145,7 @@
         startButton.disabled = true;
 
         // Start the test
-        fetch('/cgi-bin/luci/admin/network/speedtest/run', {
+        fetch('/cgi-bin/luci/admin/router-ease/action_run_speedtest', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'}
         })
@@ -153,7 +153,7 @@
             .then(() => {
                 // Poll for results
                 var checkStatus = setInterval(function () {
-                    fetch('/cgi-bin/luci/admin/network/speedtest/status')
+                    fetch('cgi-bin/luci/admin/router-ease/action_status')
                         .then(response => response.json())
                         .then(data => {
                             if (data.status === 'complete') {

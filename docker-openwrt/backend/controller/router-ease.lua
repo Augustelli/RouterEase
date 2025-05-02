@@ -12,6 +12,7 @@ function index()
     entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
     entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
     entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
+
     -- API endpoints for both features
     entry({"admin", "router-ease", "run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
     entry({"admin", "router-ease", "speedtest_status"}, call("action_status"), nil).leaf = true
@@ -140,6 +141,33 @@ function action_status()
             message = "No test results found"
         })
     end
+end
+
+--- WiFi QR Code Functionality
+
+function get_wifi_info()
+    local uci = require "luci.model.uci".cursor()
+    local json = require "luci.jsonc"
+    local result = {}
+
+    -- Get primary WiFi network info
+    uci:foreach("wireless", "wifi-iface", function(s)
+        if s.mode == "ap" and s.network == "lan" then
+            result.ssid = s.ssid or ""
+            result.key = s.key or ""
+            result.encryption = s.encryption or "none"
+            return false  -- Stop after finding the first AP
+        end
+    end)
+
+    luci.http.prepare_content("application/json")
+    luci.http.write(json.stringify(result))
+end
+
+-- Add implementation for get_connected_devices if needed
+function get_connected_devices()
+    -- Implementation goes here
+    -- This function was referenced in the index() but was not defined in the provided code
 end
 
 --- QR Code Functionality
