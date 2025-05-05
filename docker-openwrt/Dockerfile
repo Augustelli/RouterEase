@@ -15,6 +15,7 @@ RUN mkdir -p /var/lock
 #      dnsmasq-full \
 #      iptables-mod-checksum \
 #      rpcd \
+#      luci-app-adblock \
 #      uhttpd \
 #      uhttpd-mod-ubus \
 #      luci-base \
@@ -24,7 +25,8 @@ RUN mkdir -p /var/lock
 #      luci-app-compat \
 #      luci-mod-admin-full \
 #      luci-mod-rpc
-
+#      luci-app-sqm \
+#      luci-app-qos \
 
 
 RUN opkg remove --force-depends \
@@ -49,14 +51,18 @@ RUN opkg remove --force-depends \
       libuci-lua \
       luci-lib-jsonc \
       speedtest-netperf \
-      iwinfo \
       luci-app-firewall \
-      luci-app-sqm \
-      luci-app-qos \
       luci-app-nft-qos \
-      luci-app-adblock \
       luci-compat \
       luci-theme-material \
+      luci-app-nlbwmon \
+      luci-mod-network \
+      luci-mod-rpc \
+      luci-mod-status \
+      luci-mod-system \
+      luci-base \
+      luci-compat \
+      luci-app-opkg  \
       qrencode
 
 

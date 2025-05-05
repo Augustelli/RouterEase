@@ -23,8 +23,27 @@ download_rootfs() {
 			else
 				echo "Unsupported architecture!"
 				exit 1
-			fi
-		;;
+			fi;;
+		24)
+			if [ "$ARCH" = "bcm2708" ] ; then
+				img_url="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/brcm2708/bcm2708/openwrt-${OPENWRT_SOURCE_VER}-brcm2708-bcm2708-rpi-squashfs-factory.img.gz"
+				version="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/brcm2708/bcm2708/version.buildinfo"
+				gen_rootfs_from_img
+				return
+			elif [ "$ARCH" = "armvirt-32" ] ; then
+				rootfs_url="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/armvirt/32/openwrt-${OPENWRT_SOURCE_VER}-armvirt-32-default-rootfs.tar.gz"
+				version="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/armvirt/32/version.buildinfo"
+			elif [ "$ARCH" = "armvirt-64" ] ; then
+				rootfs_url="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/armvirt/64/openwrt-${OPENWRT_SOURCE_VER}-armvirt-64-default-rootfs.tar.gz"
+				version="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/armvirt/64/version.buildinfo"
+			elif [ "$ARCH" = "x86-64" ] ; then
+				rootfs_url="https://downloads.openwrt.org/releases/24.10.1/targets/x86/generic/openwrt-24.10.1-x86-generic-rootfs.tar.gz"
+#				https://downloads.openwrt.org/releases/24.10.1/targets/x86/64/openwrt-24.10.1-x86-64-rootfs.tar.gz
+				version="https://downloads.openwrt.org/releases/24.10.1/targets/x86/64/version.buildinfo"
+			else
+				echo "Unsupported architecture!"
+				exit 1
+			fi;;
 		*)
 			if [ "$ARCH" = "bcm2708" ] ; then
 				img_url="https://downloads.openwrt.org/releases/${OPENWRT_SOURCE_VER}/targets/brcm2708/bcm2708/openwrt-${OPENWRT_SOURCE_VER}-brcm2708-bcm2708-rpi-squashfs-factory.img.gz"
