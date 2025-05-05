@@ -10,11 +10,15 @@ function index()
     -- Add both features as submenu items under Network Tools
     entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
     entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
+    entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
 
     -- API endpoints for both features
     entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
     entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
     entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
+    entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
+    -- Add this to your index() function with the other endpoint registrations
+    entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
 end
 
 --- Speed Test Functionality
@@ -159,4 +163,153 @@ function get_wifi_info()
 
     luci.http.prepare_content("application/json")
     luci.http.write(json.stringify(result))
+end
+
+
+--- Connected devices
+
+
+--- Connected Devices
+
+function get_connected_devices()
+    local sys = require "luci.sys"
+    local util = require "luci.util"
+    local uci = require "luci.model.uci".cursor()
+    local json = require "luci.jsonc"
+    local nixio = require "nixio"
+
+    local result = {}
+    local devices = {}
+    local hostnames = {}
+
+    -- Get DHCP leases for hostname mapping
+    uci:foreach("dhcp", "host", function(s)
+        if s.mac and s.name then
+            hostnames[string.upper(s.mac)] = s.name
+        end
+    end)
+
+    -- Get DHCP leases for active clients
+    local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
+    for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
+        if name ~= "*" then
+            hostnames[string.upper(mac)] = name
+        end
+    end
+
+    -- Get ARP table for all connected devices
+    local arp_table = nixio.fs.readfile("/proc/net/arp") or ""
+    for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
+        if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
+            local dev_info = {
+                ip = ip,
+                mac = string.upper(mac),
+                interface = device,
+                hostname = hostnames[string.upper(mac)] or "Unknown",
+                connection_type = "wired",
+                signal = nil,
+                rx_bytes = 0,
+                tx_bytes = 0,
+                last_seen = os.time()
+            }
+            devices[string.upper(mac)] = dev_info
+        end
+    end
+
+    -- Get wireless clients
+    local iw_output = util.exec("iwinfo | grep -A 5 'ESSID\\|Associated'") or ""
+    local current_iface = nil
+    local current_essid = nil
+
+    for line in iw_output:gmatch("[^\r\n]+") do
+        if line:match("ESSID:") then
+            current_iface = line:match("^(.-) ") or ""
+            current_essid = line:match("ESSID: \"(.-)\"") or "Unknown"
+        elseif line:match("Associated") then
+            local mac = line:match("([0-9A-F:]+)") or ""
+            if mac ~= "" and devices[string.upper(mac)] then
+                devices[string.upper(mac)].connection_type = "wifi"
+                devices[string.upper(mac)].essid = current_essid
+                devices[string.upper(mac)].interface = current_iface
+
+                -- Get signal strength
+                local signal = line:match("Signal: ([%-0-9]+)") or "0"
+                devices[string.upper(mac)].signal = tonumber(signal) or 0
+            end
+        end
+    end
+
+    -- Get traffic statistics from bandwidth monitoring
+--[[     local bw_stats = util.exec("cat /tmp/nlbwmon.db 2>/dev/null") or ""
+    for mac, rx, tx in bw_stats:gmatch("mac=([0-9A-F:]+).-rx_bytes=(%d+).-tx_bytes=(%d+)") do
+        if devices[string.upper(mac)] then
+            devices[string.upper(mac)].rx_bytes = tonumber(rx) or 0
+            devices[string.upper(mac)].tx_bytes = tonumber(tx) or 0
+        end
+    end ]]
+
+    -- Convert to array
+    for _, device in pairs(devices) do
+        table.insert(result, device)
+    end
+
+    luci.http.prepare_content("application/json")
+    luci.http.write(json.stringify(result))
+end
+
+--- Kick devices from the LAN
+function action_kick_device()
+    local http = require "luci.http"
+    local util = require "luci.util"
+    local json = require "luci.jsonc"
+
+    -- Parse input parameters
+    local params = http.content()
+    local input = json.parse(params)
+
+    if not input or not input.mac then
+        http.status(400, "Bad Request")
+        http.prepare_content("application/json")
+        http.write_json({success = false, message = "Missing MAC address"})
+        return
+    end
+
+    local mac = input.mac:upper()
+    local connection_type = input.connection_type or "unknown"
+
+    -- Response to return
+    local result = {success = false, message = "Failed to kick device"}
+
+    -- Handle wireless devices
+    if connection_type == "wifi" then
+        -- Get all wireless interfaces
+        local ifaces = util.exec("iwinfo | grep -E '^[a-z0-9]+'"):gsub("\n$", ""):split("\n")
+
+        -- Try to kick from each interface until successful
+        for _, iface in ipairs(ifaces) do
+            local cmd = "hostapd_cli -i " .. iface .. " deauth " .. mac .. " 2>&1"
+            local res = util.exec(cmd)
+
+            if res:match("OK") then
+                result.success = true
+                result.message = "Device kicked from wireless network"
+                break
+            end
+        end
+    else
+        -- For wired devices, block using firewall
+        local blocktime = 60  -- Block for 60 seconds
+
+        -- Create temporary firewall rule to block the MAC
+        util.exec("iptables -I FORWARD -m mac --mac-source " .. mac .. " -j DROP")
+
+        -- Schedule removal of the rule after blocktime
+        util.exec("(sleep " .. blocktime .. " && iptables -D FORWARD -m mac --mac-source " .. mac .. " -j DROP) &")
+
+        result.success = true
+        result.message = "Device blocked for " .. blocktime .. " seconds"
+    end
+
+    http.prepare_content("application/json")
+    http.write_json(result)
 end

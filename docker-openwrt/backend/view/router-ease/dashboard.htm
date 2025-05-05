@@ -117,9 +117,9 @@
                     <th data-sort="mac">MAC Address</th>
                     <th data-sort="connection_type">Connection</th>
                     <th data-sort="interface">Interface</th>
-                    <th data-sort="signal">Signal</th>
+<!--                    <th data-sort="signal">Signal</th>
                     <th data-sort="rx_bytes">Received</th>
-                    <th data-sort="tx_bytes">Transmitted</th>
+                    <th data-sort="tx_bytes">Transmitted</th>-->
                     <th data-sort="last_seen">Last Seen</th>
                 </tr>
             </thead>
@@ -250,14 +250,66 @@
                 <td>${device.mac}</td>
                 <td>${connectionHtml}</td>
                 <td>${device.interface || '—'}</td>
-                <td>${signalHtml}</td>
-                <td class="traffic-data">${formatBytes(device.rx_bytes)}</td>
-                <td class="traffic-data">${formatBytes(device.tx_bytes)}</td>
                 <td>${timeAgo(device.last_seen)}</td>
+                <td>
+                    <button class="kick-device-btn" data-mac="${device.mac}" data-type="${device.connection_type}">
+                        Disconnect
+                    </button>
+                </td>
             `;
 
             deviceTableBody.appendChild(row);
+            deviceTableBody.addEventListener('click', function(e) {
+                if (e.target.classList.contains('kick-device-btn')) {
+                    const mac = e.target.dataset.mac;
+                    const type = e.target.dataset.type;
+                    kickDevice(mac, type, e.target);
+                }
+            });
         });
+    }
+
+    // Function to kick a device
+    function kickDevice(mac, connectionType, button) {
+        // Change button state
+        button.disabled = true;
+        button.textContent = 'Disconnecting...';
+
+        fetch('/cgi-bin/luci/admin/router-ease/kick_device', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                mac: mac,
+                connection_type: connectionType
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.textContent = 'Success!';
+                    setTimeout(() => {
+                        button.textContent = 'Disconnect';
+                        button.disabled = false;
+                        fetchDevices(); // Refresh the device list
+                    }, 3000);
+                } else {
+                    button.textContent = 'Failed';
+                    setTimeout(() => {
+                        button.textContent = 'Disconnect';
+                        button.disabled = false;
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                console.error('Error kicking device:', error);
+                button.textContent = 'Error';
+                setTimeout(() => {
+                    button.textContent = 'Disconnect';
+                    button.disabled = false;
+                }, 3000);
+            });
     }
 
     // Fetch devices data
