@@ -38,6 +38,9 @@ RUN opkg remove --force-depends \
       wpad-wolfssl \
       iw-full \
       ip-full \
+      iptables \
+      iptables-mod-extra \
+      ip6tables \
       cgi-io \
       kmod-mac80211 \
       dnsmasq-full \
@@ -54,7 +57,7 @@ RUN opkg remove --force-depends \
       luci-app-firewall \
       luci-app-nft-qos \
       luci-compat \
-      luci-theme-material \
+      luci-theme-openwrt-2020  \
       luci-app-nlbwmon \
       luci-mod-network \
       luci-mod-rpc \

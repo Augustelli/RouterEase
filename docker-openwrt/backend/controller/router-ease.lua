@@ -34,7 +34,7 @@ function action_run_speedtest()
 
     -- Run speedtest-netperf.sh and redirect output to a file
     sys.call("which speedtest-netperf.sh > /tmp/speedtest_path.txt")
-    sys.call("speedtest-netperf.sh > /tmp/speedtest_results.txt 2>&1 &")
+    sys.call("speedtest-netperf.sh  -H 79.127.209.1 -t 30 > /tmp/speedtest_results.txt 2>&1 &")
 
     luci.http.prepare_content("application/json")
     luci.http.write_json({ status = "running" })
@@ -189,7 +189,7 @@ function get_connected_devices()
         end
     end)
 
-    -- Get DHCP leases for active clients
+    -- Get DHCP leases for active client
     local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
     for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
         if name ~= "*" then
