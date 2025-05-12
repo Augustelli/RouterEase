@@ -1,0 +1,138 @@
+<%+header%>
+<h2><%:Bandwidth Monitor%></h2>
+
+<div class="cbi-map">
+    <div class="cbi-section">
+        <h3><%:Traffic Overview%></h3>
+
+        <div class="cbi-section-node">
+            <div id="bandwidth-data">
+                <p><em><%:Loading bandwidth data...%></em></p>
+            </div>
+
+            <div class="cbi-value">
+                <div class="cbi-value-title"><%:Display Period%></div>
+                <div class="cbi-value-field">
+                    <select id="period-select" class="cbi-input-select">
+                        <option value="day"><%:Today%></option>
+                        <option value="week"><%:This Week%></option>
+                        <option value="month" selected><%:This Month%></option>
+                        <option value="year"><%:This Year%></option>
+                    </select>
+                    <button id="refresh-btn" class="cbi-button cbi-button-apply"><%:Refresh%></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cbi-section">
+        <h3><%:Top Clients%></h3>
+        <div class="cbi-section-node">
+            <table class="table" id="client-table">
+                <tr class="tr table-titles">
+                    <th class="th"><%:MAC%></th>
+                    <th class="th"><%:Host%></th>
+                    <th class="th"><%:Download%></th>
+                    <th class="th"><%:Upload%></th>
+                    <th class="th"><%:Total%></th>
+                </tr>
+                <tr class="tr placeholder">
+                    <td class="td" colspan="5"><em><%:Collecting data...%></em></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+    }
+
+    function loadBandwidthData() {
+        const period = document.getElementById('period-select').value;
+
+        fetch('/cgi-bin/luci/admin/router-ease/get_bandwidth_data?period=' + period)
+            .then(response => response.json())
+            .then(data => {
+                // Update overview
+                let overviewHtml = '<div class="bandwidth-overview">';
+                overviewHtml += '<div class="bw-total"><strong><%:Total:%></strong> ' + formatBytes(data.total) + '</div>';
+                overviewHtml += '<div class="bw-down"><strong><%:Download:%></strong> ' + formatBytes(data.download) + '</div>';
+                overviewHtml += '<div class="bw-up"><strong><%:Upload:%></strong> ' + formatBytes(data.upload) + '</div>';
+                overviewHtml += '</div>';
+
+                document.getElementById('bandwidth-data').innerHTML = overviewHtml;
+
+                // Update client table
+                const clientTable = document.getElementById('client-table');
+                let tableHtml = `
+                    <tr class="tr table-titles">
+                        <th class="th"><%:MAC%></th>
+                        <th class="th"><%:Host%></th>
+                        <th class="th"><%:Download%></th>
+                        <th class="th"><%:Upload%></th>
+                        <th class="th"><%:Total%></th>
+                    </tr>
+                `;
+
+                if (data.clients && data.clients.length > 0) {
+                    data.clients.forEach(client => {
+                        tableHtml += `
+                            <tr class="tr">
+                                <td class="td">${client.mac}</td>
+                                <td class="td">${client.hostname || 'Unknown'}</td>
+                                <td class="td">${formatBytes(client.download)}</td>
+                                <td class="td">${formatBytes(client.upload)}</td>
+                                <td class="td">${formatBytes(client.download + client.upload)}</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    tableHtml += '<tr class="tr"><td class="td" colspan="5"><em><%:No data available%></em></td></tr>';
+                }
+
+                clientTable.innerHTML = tableHtml;
+            })
+            .catch(error => {
+                console.error('Error loading bandwidth data:', error);
+                document.getElementById('bandwidth-data').innerHTML = '<p><em><%:Error loading bandwidth data%></em></p>';
+            });
+    }
+
+    // Initial load
+    loadBandwidthData();
+
+    // Setup refresh button
+    document.getElementById('refresh-btn').addEventListener('click', loadBandwidthData);
+    document.getElementById('period-select').addEventListener('change', loadBandwidthData);
+});
+</script>
+
+<style>
+.bandwidth-overview {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1em;
+    background: #f9f9f9;
+    padding: 1em;
+    border-radius: 3px;
+}
+.bandwidth-overview > div {
+    flex: 1;
+    text-align: center;
+    padding: 0.5em;
+}
+.bw-total { font-size: 1.2em; }
+.bw-down { color: #2b6a94; }
+.bw-up { color: #8f5928; }
+</style>
+
+<%+footer%>

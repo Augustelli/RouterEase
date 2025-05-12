@@ -2,6 +2,9 @@ FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
 
+#      luci-app-nlbwmon \
+#luci-app-adblock-fast
+#luci-app-diag-core
 
 RUN opkg remove --force-depends \
       dnsmasq* \
@@ -30,9 +33,7 @@ RUN opkg remove --force-depends \
       speedtest-netperf \
       luci-app-firewall \
       luci-app-nft-qos \
-      luci-compat \
       luci-theme-openwrt-2020 \
-      luci-app-nlbwmon \
       luci-mod-network \
       luci-mod-rpc \
       luci-mod-status \
@@ -40,6 +41,8 @@ RUN opkg remove --force-depends \
       luci-base \
       luci-compat \
       luci-app-opkg  \
+      luci-app-nlbwmon \
+      luci-app-adblock-fast \
       qrencode
 
 

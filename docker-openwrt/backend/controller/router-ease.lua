@@ -1,7 +1,13 @@
 module("luci.controller.router-ease", package.seeall)
 
+local dispatcher = require "luci.dispatcher"
+
 function index()
-     entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60).dependent=false
+     -- Add authentication requirement to fix the visibility issue
+     local page = entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60)
+     page.dependent = false
+     page.sysauth = "admin"  -- Fix for authentication issue
+
      entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
 
      -- Add both features as submenu items under Network Tools
@@ -9,10 +15,16 @@ function index()
      entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
      entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
 
-     -- QoS integration - direct method, not iframe
+     -- Keep existing QoS integration
+-- Quality of Service (working correctly)
      entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
 
-     -- API endpoints for features
+-- Main bandwidth monitoring page
+     entry({"admin", "router-ease", "bandwidth"}, view("nlbw/display"), _("Bandwidth Monitor"), 35)
+
+     -- Sub-pages if desired (optional)
+     entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), _("Configuration"))
+     entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), _("Backup"))
      entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
      entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
      entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
@@ -20,6 +32,8 @@ function index()
      entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
      entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
 end
+
+
 
 local function qos_status()
     local sys = require "luci.sys"
