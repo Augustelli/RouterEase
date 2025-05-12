@@ -2,32 +2,6 @@ FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
 
-#RUN opkg remove --force-depends \
-#      dnsmasq* \
-#      wpad* \
-#      iw* && \
-#    opkg update && \
-#    opkg install luci \
-#      wpad-wolfssl \
-#      iw-full \
-#      ip-full \
-#      kmod-mac80211 \
-#      dnsmasq-full \
-#      iptables-mod-checksum \
-#      rpcd \
-#      luci-app-adblock \
-#      uhttpd \
-#      uhttpd-mod-ubus \
-#      luci-base \
-#      luci-app-firewall \
-#      luci-app-opkg \
-#      luci-compat \
-#      luci-app-compat \
-#      luci-mod-admin-full \
-#      luci-mod-rpc
-#      luci-app-sqm \
-#      luci-app-qos \
-
 
 RUN opkg remove --force-depends \
       dnsmasq* \
@@ -57,7 +31,7 @@ RUN opkg remove --force-depends \
       luci-app-firewall \
       luci-app-nft-qos \
       luci-compat \
-      luci-theme-openwrt-2020  \
+      luci-theme-openwrt-2020 \
       luci-app-nlbwmon \
       luci-mod-network \
       luci-mod-rpc \

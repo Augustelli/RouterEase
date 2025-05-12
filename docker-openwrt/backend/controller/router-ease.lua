@@ -1,27 +1,36 @@
 module("luci.controller.router-ease", package.seeall)
 
 function index()
-    -- Create main Router-Ease menu entry with two sub-features
-    entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60).dependent=false
-    entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
+     entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60).dependent=false
+     entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
 
-    -- Network tools as top-level category
+     -- Add both features as submenu items under Network Tools
+     entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
+     entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
+     entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
 
-    -- Add both features as submenu items under Network Tools
-    entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
-    entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
-    entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
+     -- QoS integration - direct method, not iframe
+     entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
 
-    -- API endpoints for both features
-    entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
-    entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
-    entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
-    entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
-    -- Add this to your index() function with the other endpoint registrations
-    entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
+     -- API endpoints for features
+     entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
+     entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
+     entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
+     entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
+     entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
+     entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
 end
 
---- Speed Test Functionality
+local function qos_status()
+    local sys = require "luci.sys"
+    local util = require "luci.util"
+
+    -- Get QoS status
+    local status = util.trim(util.exec("nft list ruleset | grep -q 'qos' && echo on || echo off"))
+    return status
+end
+
+-- Rest of the functions remain the same...
 
 function action_run_speedtest()
     local sys = require "luci.sys"
@@ -313,3 +322,4 @@ function action_kick_device()
     http.prepare_content("application/json")
     http.write_json(result)
 end
+

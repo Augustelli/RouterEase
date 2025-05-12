@@ -10,8 +10,8 @@ run:
 	./run.sh
 
 clean:
-	docker stop alpine-client || true
-	docker rm alpine-client || true
+	docker stop python-client || true
+	docker rm python-client || true
 	docker stop ${CONTAINER} || true
 	docker rm ${CONTAINER} || true
 	docker network rm ${LAN_NAME} ${WAN_NAME} || true
