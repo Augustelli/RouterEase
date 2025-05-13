@@ -205,6 +205,24 @@ function get_connected_devices()
     local devices = {}
     local hostnames = {}
 
+    -- Load manufacturer database from arp-scan-database
+    local manufacturers = {}
+    if nixio.fs.access("/usr/share/arp-scan/ieee-oui.txt") then
+        for line in io.lines("/usr/share/arp-scan/ieee-oui.txt") do
+            local mac_prefix, manufacturer = line:match("^([0-9A-F]+)%s+(.+)$")
+            if mac_prefix then
+                manufacturers[mac_prefix] = manufacturer
+            end
+        end
+    end
+
+    -- Function to get manufacturer from MAC
+    local function get_manufacturer(mac)
+        if not mac then return "Unknown" end
+        local prefix = mac:gsub(":", ""):sub(1, 6):upper()
+        return manufacturers[prefix] or "Unknown"
+    end
+
     -- Get DHCP leases for hostname mapping
     uci:foreach("dhcp", "host", function(s)
         if s.mac and s.name then
@@ -212,7 +230,7 @@ function get_connected_devices()
         end
     end)
 
-    -- Get DHCP leases for active client
+    -- Get DHCP leases for active clients
     local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
     for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
         if name ~= "*" then
@@ -224,18 +242,30 @@ function get_connected_devices()
     local arp_table = nixio.fs.readfile("/proc/net/arp") or ""
     for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
         if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
+            local upper_mac = string.upper(mac)
+            local manufacturer = get_manufacturer(upper_mac)
+
             local dev_info = {
                 ip = ip,
-                mac = string.upper(mac),
+                mac = upper_mac,
                 interface = device,
-                hostname = hostnames[string.upper(mac)] or "Unknown",
+                hostname = hostnames[upper_mac] or "Unknown",
+                manufacturer = manufacturer,
                 connection_type = "wired",
                 signal = nil,
                 rx_bytes = 0,
                 tx_bytes = 0,
                 last_seen = os.time()
             }
-            devices[string.upper(mac)] = dev_info
+
+            -- Fallback name when hostname is unknown
+            if dev_info.hostname == "Unknown" then
+                dev_info.display_name = manufacturer .. " Device"
+            else
+                dev_info.display_name = dev_info.hostname
+            end
+
+            devices[upper_mac] = dev_info
         end
     end
 
@@ -262,15 +292,6 @@ function get_connected_devices()
         end
     end
 
-    -- Get traffic statistics from bandwidth monitoring
---[[     local bw_stats = util.exec("cat /tmp/nlbwmon.db 2>/dev/null") or ""
-    for mac, rx, tx in bw_stats:gmatch("mac=([0-9A-F:]+).-rx_bytes=(%d+).-tx_bytes=(%d+)") do
-        if devices[string.upper(mac)] then
-            devices[string.upper(mac)].rx_bytes = tonumber(rx) or 0
-            devices[string.upper(mac)].tx_bytes = tonumber(tx) or 0
-        end
-    end ]]
-
     -- Convert to array
     for _, device in pairs(devices) do
         table.insert(result, device)
@@ -278,62 +299,5 @@ function get_connected_devices()
 
     luci.http.prepare_content("application/json")
     luci.http.write(json.stringify(result))
-end
-
---- Kick devices from the LAN
-function action_kick_device()
-    local http = require "luci.http"
-    local util = require "luci.util"
-    local json = require "luci.jsonc"
-
-    -- Parse input parameters
-    local params = http.content()
-    local input = json.parse(params)
-
-    if not input or not input.mac then
-        http.status(400, "Bad Request")
-        http.prepare_content("application/json")
-        http.write_json({success = false, message = "Missing MAC address"})
-        return
-    end
-
-    local mac = input.mac:upper()
-    local connection_type = input.connection_type or "unknown"
-
-    -- Response to return
-    local result = {success = false, message = "Failed to kick device"}
-
-    -- Handle wireless devices
-    if connection_type == "wifi" then
-        -- Get all wireless interfaces
-        local ifaces = util.exec("iwinfo | grep -E '^[a-z0-9]+'"):gsub("\n$", ""):split("\n")
-
-        -- Try to kick from each interface until successful
-        for _, iface in ipairs(ifaces) do
-            local cmd = "hostapd_cli -i " .. iface .. " deauth " .. mac .. " 2>&1"
-            local res = util.exec(cmd)
-
-            if res:match("OK") then
-                result.success = true
-                result.message = "Device kicked from wireless network"
-                break
-            end
-        end
-    else
-        -- For wired devices, block using firewall
-        local blocktime = 60  -- Block for 60 seconds
-
-        -- Create temporary firewall rule to block the MAC
-        util.exec("iptables -I FORWARD -m mac --mac-source " .. mac .. " -j DROP")
-
-        -- Schedule removal of the rule after blocktime
-        util.exec("(sleep " .. blocktime .. " && iptables -D FORWARD -m mac --mac-source " .. mac .. " -j DROP) &")
-
-        result.success = true
-        result.message = "Device blocked for " .. blocktime .. " seconds"
-    end
-
-    http.prepare_content("application/json")
-    http.write_json(result)
 end
 

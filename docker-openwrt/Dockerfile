@@ -2,15 +2,12 @@ FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
 
-#      luci-app-nlbwmon \
-#luci-app-adblock-fast
-#luci-app-diag-core
 
+RUN opkg update
 RUN opkg remove --force-depends \
       dnsmasq* \
       wpad* \
       iw* && \
-    opkg update && \
     opkg install \
       wpad-wolfssl \
       iw-full \
