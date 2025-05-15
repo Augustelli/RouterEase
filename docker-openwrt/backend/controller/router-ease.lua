@@ -57,7 +57,7 @@ function action_run_speedtest()
 
     -- Run speedtest-netperf.sh and redirect output to a file
     sys.call("which speedtest-netperf.sh > /tmp/speedtest_path.txt")
-    sys.call("speedtest-netperf.sh  -H 79.127.209.1 -t 30 > /tmp/speedtest_results.txt 2>&1 &")
+    sys.call("speedtest-netperf.sh  -H 79.127.209.1 -t 20 > /tmp/speedtest_results.txt 2>&1 &")
 
     luci.http.prepare_content("application/json")
     luci.http.write_json({ status = "running" })
@@ -191,9 +191,6 @@ end
 
 --- Connected devices
 
-
---- Connected Devices
-
 function get_connected_devices()
     local sys = require "luci.sys"
     local util = require "luci.util"
@@ -205,7 +202,7 @@ function get_connected_devices()
     local devices = {}
     local hostnames = {}
 
-    -- Load manufacturer database from arp-scan-database
+    -- Load manufacturer database as fallback
     local manufacturers = {}
     if nixio.fs.access("/usr/share/arp-scan/ieee-oui.txt") then
         for line in io.lines("/usr/share/arp-scan/ieee-oui.txt") do
@@ -238,34 +235,85 @@ function get_connected_devices()
         end
     end
 
-    -- Get ARP table for all connected devices
+    -- Run arp-scan with fallback options to handle missing IP address
+    local arp_scan_cmd = "arp-scan 192.168.16.0/24 -xg 2>/dev/null"
+    local arp_scan_result = util.exec(arp_scan_cmd) or ""
+
+    -- Process arp-scan results
+    for line in arp_scan_result:gmatch("[^\r\n]+") do
+        -- Skip header lines
+        if line:match("^%d+%.%d+%.%d+%.%d+") then
+            local ip, mac, vendor = line:match("(%d+%.%d+%.%d+%.%d+)%s+([0-9a-fA-F:]+)%s+(.*)")
+            if ip and mac and mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
+                local upper_mac = string.upper(mac)
+
+                -- Use vendor from arp-scan output or fallback to database lookup
+                local manufacturer = vendor
+                if not manufacturer or manufacturer:match("Unknown") then
+                    manufacturer = get_manufacturer(upper_mac)
+                end
+
+                local dev_info = {
+                    ip = ip,
+                    mac = upper_mac,
+                    interface = "unknown", -- Will be updated later if found in other sources
+                    hostname = hostnames[upper_mac] or "Unknown",
+                    manufacturer = manufacturer,
+                    connection_type = "unknown", -- Will be updated later
+                    signal = nil,
+                    rx_bytes = 0,
+                    tx_bytes = 0,
+                    last_seen = os.time()
+                }
+
+                -- Fallback name when hostname is unknown
+                if dev_info.hostname == "Unknown" then
+                    dev_info.display_name = manufacturer .. " Device"
+                else
+                    dev_info.display_name = dev_info.hostname
+                end
+
+                devices[upper_mac] = dev_info
+            end
+        end
+    end
+
+    -- Get ARP table for additional connected devices and update existing ones
     local arp_table = nixio.fs.readfile("/proc/net/arp") or ""
     for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
         if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
             local upper_mac = string.upper(mac)
-            local manufacturer = get_manufacturer(upper_mac)
 
-            local dev_info = {
-                ip = ip,
-                mac = upper_mac,
-                interface = device,
-                hostname = hostnames[upper_mac] or "Unknown",
-                manufacturer = manufacturer,
-                connection_type = "wired",
-                signal = nil,
-                rx_bytes = 0,
-                tx_bytes = 0,
-                last_seen = os.time()
-            }
-
-            -- Fallback name when hostname is unknown
-            if dev_info.hostname == "Unknown" then
-                dev_info.display_name = manufacturer .. " Device"
+            if devices[upper_mac] then
+                -- Update existing device with additional info
+                devices[upper_mac].interface = device
+                devices[upper_mac].connection_type = "wired"
             else
-                dev_info.display_name = dev_info.hostname
-            end
+                -- Create new device entry
+                local manufacturer = get_manufacturer(upper_mac)
 
-            devices[upper_mac] = dev_info
+                local dev_info = {
+                    ip = ip,
+                    mac = upper_mac,
+                    interface = device,
+                    hostname = hostnames[upper_mac] or "Unknown",
+                    manufacturer = manufacturer,
+                    connection_type = "wired",
+                    signal = nil,
+                    rx_bytes = 0,
+                    tx_bytes = 0,
+                    last_seen = os.time()
+                }
+
+                -- Fallback name when hostname is unknown
+                if dev_info.hostname == "Unknown" then
+                    dev_info.display_name = manufacturer .. " Device"
+                else
+                    dev_info.display_name = dev_info.hostname
+                end
+
+                devices[upper_mac] = dev_info
+            end
         end
     end
 
@@ -280,14 +328,18 @@ function get_connected_devices()
             current_essid = line:match("ESSID: \"(.-)\"") or "Unknown"
         elseif line:match("Associated") then
             local mac = line:match("([0-9A-F:]+)") or ""
-            if mac ~= "" and devices[string.upper(mac)] then
-                devices[string.upper(mac)].connection_type = "wifi"
-                devices[string.upper(mac)].essid = current_essid
-                devices[string.upper(mac)].interface = current_iface
+            if mac ~= "" then
+                local upper_mac = string.upper(mac)
+                if devices[upper_mac] then
+                    -- Update existing device with wifi info
+                    devices[upper_mac].connection_type = "wifi"
+                    devices[upper_mac].essid = current_essid
+                    devices[upper_mac].interface = current_iface
 
-                -- Get signal strength
-                local signal = line:match("Signal: ([%-0-9]+)") or "0"
-                devices[string.upper(mac)].signal = tonumber(signal) or 0
+                    -- Get signal strength
+                    local signal = line:match("Signal: ([%-0-9]+)") or "0"
+                    devices[upper_mac].signal = tonumber(signal) or 0
+                end
             end
         end
     end
@@ -300,4 +352,3 @@ function get_connected_devices()
     luci.http.prepare_content("application/json")
     luci.http.write(json.stringify(result))
 end
-

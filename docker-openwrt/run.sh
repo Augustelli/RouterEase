@@ -215,6 +215,7 @@ main() {
 	_prepare_network
 
 	_reload_fw
+	./add_test_container.sh
 	echo "* ready"
 }
 

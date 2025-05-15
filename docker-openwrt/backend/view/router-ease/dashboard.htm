@@ -6,40 +6,48 @@
     .device-dashboard {
         margin: 20px 0;
     }
+
     .card {
         background: #fff;
         border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         margin-bottom: 15px;
         padding: 15px;
     }
+
     .filters {
         display: flex;
         gap: 15px;
         margin-bottom: 15px;
         flex-wrap: wrap;
     }
+
     .filter-group {
         display: flex;
         align-items: center;
         gap: 5px;
     }
+
     .device-table {
         width: 100%;
         border-collapse: collapse;
     }
+
     .device-table th, .device-table td {
         padding: 8px;
         text-align: left;
         border-bottom: 1px solid #ddd;
     }
+
     .device-table th {
         background-color: #f5f5f5;
         cursor: pointer;
     }
+
     .device-table th:hover {
         background-color: #e5e5e5;
     }
+
     .wifi-signal {
         display: inline-block;
         width: 50px;
@@ -47,28 +55,34 @@
         background: #eee;
         position: relative;
     }
+
     .wifi-signal-bar {
         height: 100%;
         background: #4CAF50;
         position: absolute;
         left: 0;
     }
+
     .connection-type {
         display: inline-flex;
         align-items: center;
         gap: 5px;
     }
+
     .connection-icon {
         width: 20px;
         height: 20px;
         display: inline-block;
     }
+
     .wifi-icon {
         color: #2196F3;
     }
+
     .wired-icon {
         color: #4CAF50;
     }
+
     .refresh-button {
         background: #0099CC;
         color: white;
@@ -77,9 +91,11 @@
         border-radius: 4px;
         cursor: pointer;
     }
+
     .refresh-button:hover {
         background: #007AAB;
     }
+
     .traffic-data {
         white-space: nowrap;
     }
@@ -111,20 +127,17 @@
 
         <table class="device-table">
             <thead>
-                <tr>
-                    <th data-sort="hostname">Device Name</th>
-                    <th data-sort="ip">IP Address</th>
-                    <th data-sort="mac">MAC Address</th>
-                    <th data-sort="connection_type">Connection</th>
-                    <th data-sort="interface">Interface</th>
-<!--                    <th data-sort="signal">Signal</th>
-                    <th data-sort="rx_bytes">Received</th>
-                    <th data-sort="tx_bytes">Transmitted</th>-->
-                    <th data-sort="last_seen">Last Seen</th>
-                </tr>
+            <tr>
+                <th data-sort="hostname">Device Name</th>
+                <th data-sort="ip">IP Address</th>
+                <th data-sort="mac">MAC Address</th>
+                <th data-sort="connection_type">Connection</th>
+                <th data-sort="interface">Interface</th>
+                <th data-sort="last_seen">Last Seen</th>
+            </tr>
             </thead>
             <tbody id="device-table-body">
-                <!-- Data will be populated via JavaScript -->
+
             </tbody>
         </table>
     </div>
@@ -245,21 +258,17 @@
             </span>`;
 
             row.innerHTML = `
-                <td>${device.hostname}</td>
+                <td>${device.display_name || device.hostname}</td>
                 <td>${device.ip}</td>
                 <td>${device.mac}</td>
                 <td>${connectionHtml}</td>
                 <td>${device.interface || '—'}</td>
                 <td>${timeAgo(device.last_seen)}</td>
-                <td>
-                    <button class="kick-device-btn" data-mac="${device.mac}" data-type="${device.connection_type}">
-                        Disconnect
-                    </button>
-                </td>
+                <!-- Rest of the code -->
             `;
 
             deviceTableBody.appendChild(row);
-            deviceTableBody.addEventListener('click', function(e) {
+            deviceTableBody.addEventListener('click', function (e) {
                 if (e.target.classList.contains('kick-device-btn')) {
                     const mac = e.target.dataset.mac;
                     const type = e.target.dataset.type;

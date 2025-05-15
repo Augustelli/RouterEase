@@ -40,6 +40,8 @@ RUN opkg remove --force-depends \
       luci-app-opkg  \
       luci-app-nlbwmon \
       luci-app-adblock-fast \
+      device-observatory \
+      arp-scan \
       qrencode
 
 
@@ -47,6 +49,7 @@ RUN opkg remove --force-depends \
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
+RUN /etc/init.d/device-observatory enable
 
 COPY backend/controller/ /usr/lib/lua/luci/controller/
 COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/
@@ -56,6 +59,12 @@ RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true
 
 RUN echo "iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM --checksum-fill" >> /etc/firewall.user
 RUN sed -i '/^exit 0/i cat \/tmp\/resolv.conf > \/etc\/resolv.conf' /etc/rc.local
+
+RUN mkdir -p /usr/share/arp-scan /etc/arp-scan && \
+    wget -O /usr/share/arp-scan/ieee-oui.txt https://raw.githubusercontent.com/royhills/arp-scan/master/ieee-oui.txt || \
+    curl -o /usr/share/arp-scan/ieee-oui.txt https://raw.githubusercontent.com/royhills/arp-scan/master/ieee-oui.txt && \
+    cp /usr/share/arp-scan/ieee-oui.txt /etc/arp-scan/mac-vendor.txt
+
 
 ARG ts
 ARG version
