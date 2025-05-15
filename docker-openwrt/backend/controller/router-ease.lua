@@ -31,6 +31,12 @@ function index()
      entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
      entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
      entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
+
+
+     -- Add these inside your index() function
+     entry({"admin", "network", "speedtest"}, template("router-ease/speed-test"), _("Speed Test"), 90)
+     entry({"admin", "network", "speedtest", "run"}, call("action_run_speedtest"))
+     entry({"admin", "network", "speedtest", "status"}, call("action_speedtest_status"))
 end
 
 
@@ -63,66 +69,44 @@ function action_run_speedtest()
     luci.http.write_json({ status = "running" })
 end
 
-function parse_speedtest_results(results)
-    local download = 0
-    local upload = 0
-    local ping = 0
+function parse_speedtest_results(json_str)
+    local json = require "luci.jsonc"
+    local result = {
+        download = 0,
+        upload = 0,
+        ping = 0,
+        error_msg = nil
+    }
 
     -- Log raw results for debugging
     local debug_log = io.open("/tmp/speedtest_parse_debug.log", "w")
     if debug_log then
-        debug_log:write("Raw results:\n" .. results .. "\n\n")
+        debug_log:write("Raw results:\n" .. json_str .. "\n\n")
     end
 
-    -- Try multiple patterns for download speed
-    local download_patterns = {
-        "Download:.-\n%s*([%d%.]+)%s*Mbps",
-        "Download[^\n]*\n%s*([%d%.]+)"  -- More generic pattern
-    }
+    -- Try to parse the JSON
+    local success, data = pcall(function() return json.parse(json_str) end)
 
-    for _, pattern in ipairs(download_patterns) do
-        local match = results:match(pattern)
-        if match and match ~= "0.00" then
-            download = tonumber(match) or 0
-            if debug_log then debug_log:write("Download matched: " .. match .. "\n") end
-            break
+    if success and data then
+        -- Extract values from the JSON structure
+        result.download = tonumber(data.download) or 0
+        result.upload = tonumber(data.upload) or 0
+        result.ping = tonumber(data.ping) or 0
+
+        if debug_log then
+            debug_log:write("Successfully parsed JSON data\n")
+            debug_log:write(string.format("Download: %f bps\n", result.download))
+            debug_log:write(string.format("Upload: %f bps\n", result.upload))
+            debug_log:write(string.format("Ping: %f ms\n", result.ping))
         end
+    else
+        result.error_msg = "Failed to parse speedtest results"
+        if debug_log then debug_log:write("Failed to parse JSON: " .. (data or "unknown error") .. "\n") end
     end
 
-    -- Try multiple patterns for upload speed
-    local upload_patterns = {
-        "Upload:.-\n%s*([%d%.]+)%s*Mbps",
-        "Upload[^\n]*\n%s*([%d%.]+)"  -- More generic pattern
-    }
+    if debug_log then debug_log:close() end
 
-    for _, pattern in ipairs(upload_patterns) do
-        local match = results:match(pattern)
-        if match and match ~= "0.00" then
-            upload = tonumber(match) or 0
-            if debug_log then debug_log:write("Upload matched: " .. match .. "\n") end
-            break
-        end
-    end
-
-    -- Extract ping values
-    if results:match("Median:%s*([%d%.]+)") then
-        ping = tonumber(results:match("Median:%s*([%d%.]+)")) or 0
-    elseif results:match("Avg:%s*([%d%.]+)") then
-        ping = tonumber(results:match("Avg:%s*([%d%.]+)")) or 0
-    end
-
-    if debug_log then
-        debug_log:write("Final values: Download=" .. download .. ", Upload=" .. upload .. ", Ping=" .. ping .. "\n")
-        debug_log:close()
-    end
-
-    -- If we have errors in the results, report them in the response
-    local error_msg = nil
-    if results:match("WARNING:") or results:match("invalid number") then
-        error_msg = "Test completed with warnings. Results may be inaccurate."
-    end
-
-    return download, upload, ping, error_msg
+    return result.download, result.upload, result.ping, result.error_msg
 end
 
 function action_status()
@@ -132,7 +116,7 @@ function action_status()
     luci.http.prepare_content("application/json")
 
     -- Check if speedtest is still running
-    local running = (sys.exec("pgrep -f speedtest-netperf.sh") ~= "")
+    local running = (sys.exec("pgrep -f speedtest-cli") ~= "")
 
     if running then
         luci.http.write_json({ status = "running" })
@@ -140,8 +124,8 @@ function action_status()
     end
 
     -- Check for results file
-    if fs.access("/tmp/speedtest_results.txt") then
-        local results = fs.readfile("/tmp/speedtest_results.txt")
+    if fs.access("/tmp/speedtest_result") then
+        local results = fs.readfile("/tmp/speedtest_result")
 
         -- Parse the results
         local download, upload, ping, error_msg = parse_speedtest_results(results)
@@ -149,8 +133,8 @@ function action_status()
         local response = {
             status = "complete",
             data = {
-                download = { bps_mean = download * 1000000 },
-                upload = { bps_mean = upload * 1000000 },
+                download = { bps_mean = download },
+                upload = { bps_mean = upload },
                 ping = { median = ping }
             }
         }
@@ -351,4 +335,95 @@ function get_connected_devices()
 
     luci.http.prepare_content("application/json")
     luci.http.write(json.stringify(result))
+end
+
+-- Add these functions to your router-ease.lua controller
+
+function action_run_speedtest()
+    local json = require "luci.jsonc"
+    local fs = require "nixio.fs"
+    local util = require "luci.util"
+
+    -- Create a status file to track ongoing test
+    fs.writefile("/tmp/speedtest_status", "running")
+
+    -- Launch the speedtest in background to avoid timeout
+    local script = [[
+#!/bin/sh
+python3 -c '
+import json
+import subprocess
+import time
+import os
+
+try:
+    # Run speedtest-cli with JSON output
+    result = subprocess.check_output(["speedtest-cli", "--json"], universal_newlines=True)
+    data = json.loads(result)
+
+    # Format the results to match what frontend expects
+    output = {
+        "status": "complete",
+        "data": {
+            "ping": {"median": data["ping"]},
+            "download": {"bps_mean": data["download"]},
+            "upload": {"bps_mean": data["upload"]}
+        }
+    }
+
+    # Save the results
+    with open("/tmp/speedtest_result", "w") as f:
+        f.write(json.dumps(output))
+
+except Exception as e:
+    # Handle errors
+    error = {
+        "status": "error",
+        "message": str(e)
+    }
+    with open("/tmp/speedtest_result", "w") as f:
+        f.write(json.dumps(error))
+
+# Mark test as complete
+with open("/tmp/speedtest_status", "w") as f:
+    f.write("complete")
+'
+    ]]
+
+    -- Execute the script in background
+    local cmd = string.format("(%s) >/dev/null 2>&1 &", script)
+    util.exec(cmd)
+
+    -- Return immediate response to trigger polling
+    luci.http.prepare_content("application/json")
+    luci.http.write_json({status = "started"})
+end
+
+function action_speedtest_status()
+    local json = require "luci.jsonc"
+    local fs = require "nixio.fs"
+
+    -- Check if test is still running
+    local status = fs.readfile("/tmp/speedtest_status") or "error"
+    status = status:gsub("\n", "")
+
+    if status == "complete" then
+        -- Return the completed test results
+        local result = fs.readfile("/tmp/speedtest_result") or "{}"
+        local data = json.parse(result)
+
+        luci.http.prepare_content("application/json")
+        luci.http.write_json(data)
+    elseif status == "running" then
+        -- Test still in progress
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({status = "running"})
+    else
+        -- Something went wrong
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({
+            status = "error",
+            message = "Failed to start speed test"
+        })
+    end
 end

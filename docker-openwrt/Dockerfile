@@ -40,7 +40,7 @@ RUN opkg remove --force-depends \
       luci-app-opkg  \
       luci-app-nlbwmon \
       luci-app-adblock-fast \
-      device-observatory \
+      python3-speedtest-cli \
       arp-scan \
       qrencode
 
@@ -49,7 +49,6 @@ RUN opkg remove --force-depends \
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
-RUN /etc/init.d/device-observatory enable
 
 COPY backend/controller/ /usr/lib/lua/luci/controller/
 COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/

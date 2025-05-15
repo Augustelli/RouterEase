@@ -130,15 +130,39 @@ _create_or_start_container() {
 	fi
 }
 
+#_reload_fw() {
+#	echo "* reloading firewall rules"
+#	docker exec -i $CONTAINER sh -c '
+#		for iptables in iptables ip6tables; do
+#			for table in filter nat mangle; do
+#				$iptables -t $table -F
+#			done
+#		done
+#		/sbin/fw3 -q restart'
+#}
+
 _reload_fw() {
-	echo "* reloading firewall rules"
-	docker exec -i $CONTAINER sh -c '
-		for iptables in iptables ip6tables; do
-			for table in filter nat mangle; do
-				$iptables -t $table -F
-			done
-		done
-		/sbin/fw3 -q restart'
+ echo "* reloading firewall rules"
+ docker exec -i $CONTAINER sh -c '
+   # Make sure ubus is running first
+   if ! pgrep /sbin/ubusd >/dev/null; then
+     /sbin/ubusd &
+     sleep 2
+   fi
+
+   # Clear existing rules directly
+   for iptables in iptables ip6tables; do
+     for table in filter nat mangle; do
+       $iptables -t $table -F
+     done
+   done
+
+   # Try restarting fw3 with retries
+   for i in $(seq 1 3); do
+     /sbin/fw3 -q restart && break
+     echo "Retry $i: waiting for ubus..."
+     sleep 2
+   done'
 }
 
 _prepare_wifi() {

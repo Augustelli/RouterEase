@@ -1,200 +1,116 @@
 <%+header%>
 
-<style type="text/css">
-    .speedtest-container {
-        background-color: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        padding: 20px;
-        margin-bottom: 20px;
-    }
+                                <h2>Network Speed Test</h2>
 
-    .speedtest-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
+                                <div class="cbi-map">
+                                    <div class="cbi-section">
+                                        <div class="cbi-section-node">
+                                            <div class="cbi-value">
+                                                <button id="startTest" class="cbi-button cbi-button-apply">Start Speed Test</button>
+                                            </div>
 
-    .speedtest-button {
-        background-color: #0069d9;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 8px 16px;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background-color 0.3s;
-    }
+                                            <div id="testResults" style="display:none">
+                                                <div class="cbi-value">
+                                                    <label class="cbi-value-title">Status:</label>
+                                                    <div class="cbi-value-field" id="status">Ready</div>
+                                                </div>
+                                                <div class="cbi-value">
+                                                    <label class="cbi-value-title">Ping:</label>
+                                                    <div class="cbi-value-field" id="ping">-</div>
+                                                </div>
+                                                <div class="cbi-value">
+                                                    <label class="cbi-value-title">Download:</label>
+                                                    <div class="cbi-value-field" id="download">-</div>
+                                                </div>
+                                                <div class="cbi-value">
+                                                    <label class="cbi-value-title">Upload:</label>
+                                                    <div class="cbi-value-field" id="upload">-</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-    .speedtest-button:hover {
-        background-color: #0051a8;
-    }
+                                <script type="text/javascript">
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    var startBtn = document.getElementById('startTest');
+                                    var resultsDiv = document.getElementById('testResults');
+                                    var statusEl = document.getElementById('status');
+                                    var pingEl = document.getElementById('ping');
+                                    var downloadEl = document.getElementById('download');
+                                    var uploadEl = document.getElementById('upload');
 
-    .speedtest-button:disabled {
-        background-color: #6c757d;
-        cursor: not-allowed;
-    }
+                                    // Format speed in Mbps
+                                    function formatSpeed(bps) {
+                                        return (bps / 1000000).toFixed(2) + ' Mbps';
+                                    }
 
-    .status-container {
-        text-align: center;
-        padding: 30px 0;
-        display: none;
-    }
+                                    // Format ping in ms
+                                    function formatPing(ms) {
+                                        return ms.toFixed(1) + ' ms';
+                                    }
 
-    .spinner {
-        border: 4px solid rgba(0, 0, 0, 0.1);
-        border-left-color: #0069d9;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 15px;
-    }
+                                    // Poll for status updates
+                                    function pollStatus() {
+                                        fetch('<%=url("admin/network/speedtest/status")%>', {
+                                            credentials: 'same-origin',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            }
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.status === 'running') {
+                                                statusEl.textContent = 'Running test...';
+                                                setTimeout(pollStatus, 1000);
+                                            } else if (data.status === 'complete') {
+                                                statusEl.textContent = 'Test complete';
+                                                pingEl.textContent = formatPing(data.data.ping.median);
+                                                downloadEl.textContent = formatSpeed(data.data.download.bps_mean);
+                                                uploadEl.textContent = formatSpeed(data.data.upload.bps_mean);
+                                                startBtn.disabled = false;
+                                            } else {
+                                                statusEl.textContent = 'Error: ' + (data.message || 'Unknown error');
+                                                startBtn.disabled = false;
+                                            }
+                                        })
+                                        .catch(error => {
+                                            statusEl.textContent = 'Error: ' + error.message;
+                                            startBtn.disabled = false;
+                                        });
+                                    }
 
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
+                                    // Start the speed test
+                                    startBtn.addEventListener('click', function() {
+                                        startBtn.disabled = true;
+                                        resultsDiv.style.display = 'block';
+                                        statusEl.textContent = 'Starting test...';
+                                        pingEl.textContent = '-';
+                                        downloadEl.textContent = '-';
+                                        uploadEl.textContent = '-';
 
-    .results-container {
-        display: none;
-    }
+                                        fetch('<%=url("admin/network/speedtest/run")%>', {
+                                            credentials: 'same-origin',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            }
+                                        })
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.status === 'started') {
+                                                statusEl.textContent = 'Running test...';
+                                                setTimeout(pollStatus, 1000);
+                                            } else {
+                                                statusEl.textContent = 'Error starting test';
+                                                startBtn.disabled = false;
+                                            }
+                                        })
+                                        .catch(error => {
+                                            statusEl.textContent = 'Error: ' + error.message;
+                                            startBtn.disabled = false;
+                                        });
+                                    });
+                                });
+                                </script>
 
-    .result-cards {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        margin-top: 10px;
-    }
-
-    .result-card {
-        flex: 1;
-        min-width: 150px;
-        background-color: #f8f9fa;
-        border-radius: 6px;
-        padding: 15px;
-        text-align: center;
-    }
-
-    .result-value {
-        font-size: 24px;
-        font-weight: bold;
-        color: #0069d9;
-        margin: 10px 0;
-    }
-
-    .result-label {
-        font-size: 14px;
-        color: #6c757d;
-    }
-
-    @media (max-width: 768px) {
-        .result-cards {
-            flex-direction: column;
-        }
-    }
-</style>
-
-<div class="cbi-map">
-    <h2 name="content"><%:Network Speed Test%></h2>
-
-    <div class="speedtest-container">
-        <div class="speedtest-header">
-            <h3><%:Test your connection speed%></h3>
-            <button id="start-test" class="speedtest-button"><%:Start Speed Test%></button>
-        </div>
-
-        <div id="test-status" class="status-container">
-            <div class="spinner"></div>
-            <p><%:Running speed test. This may take up to 60 seconds...%></p>
-        </div>
-
-        <div id="results" class="results-container">
-            <h3><%:Test Results%></h3>
-            <div class="result-cards">
-                <div class="result-card">
-                    <div class="result-label"><%:Download Speed%></div>
-                    <div class="result-value"><span id="download">-</span> <span class="unit">Mbps</span></div>
-                </div>
-                <div class="result-card">
-                    <div class="result-label"><%:Upload Speed%></div>
-                    <div class="result-value"><span id="upload">-</span> <span class="unit">Mbps</span></div>
-                </div>
-                <div class="result-card">
-                    <div class="result-label"><%:Ping Latency%></div>
-                    <div class="result-value"><span id="ping">-</span> <span class="unit">ms</span></div>
-                </div>
-            </div>
-            <div id="warning-message" style="color: #e74c3c; margin-top: 15px; display: none;"></div>
-        </div>
-    </div>
-</div>
-
-<script type="text/javascript">
-    document.getElementById('start-test').addEventListener('click', function () {
-        var statusDiv = document.getElementById('test-status');
-        var resultsDiv = document.getElementById('results');
-        var startButton = document.getElementById('start-test');
-        var warningMessage = document.getElementById('warning-message');
-
-        statusDiv.style.display = 'block';
-        resultsDiv.style.display = 'none';
-        warningMessage.style.display = 'none';
-        startButton.disabled = true;
-
-        // Start the test
-        fetch('<%=url("admin/network/speedtest/action_run_speedtest")%>', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        })
-            .then(response => response.json())
-            .then(() => {
-                // Poll for results
-                var checkStatus = setInterval(function () {
-                    fetch('<%=url("admin/network/speedtest/action_status")%>')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'complete') {
-                                clearInterval(checkStatus);
-                                statusDiv.style.display = 'none';
-                                resultsDiv.style.display = 'block';
-                                startButton.disabled = false;
-
-                                // Update results
-                                document.getElementById('ping').textContent =
-                                    ((data.data.ping || {}).median || 0).toFixed(1);
-                                document.getElementById('download').textContent =
-                                    ((data.data.download || {}).bps_mean / 1000000 || 0).toFixed(2);
-                                document.getElementById('upload').textContent =
-                                    ((data.data.upload || {}).bps_mean / 1000000 || 0).toFixed(2);
-
-                                if (data.warning) {
-                                    warningMessage.textContent = data.warning;
-                                    warningMessage.style.display = 'block';
-                                }
-                            } else if (data.status === 'error') {
-                                clearInterval(checkStatus);
-                                statusDiv.style.display = 'none';
-                                startButton.disabled = false;
-                                alert('Error running speed test: ' + data.message);
-                            }
-                        })
-                        .catch(error => {
-                            clearInterval(checkStatus);
-                            statusDiv.style.display = 'none';
-                            startButton.disabled = false;
-                            console.error('Error checking status:', error);
-                        });
-                }, 2000);
-            })
-            .catch(error => {
-                statusDiv.style.display = 'none';
-                startButton.disabled = false;
-                console.error('Error starting test:', error);
-            });
-    });
-</script>
-
-<%+footer%>
+                                <%+footer%>
