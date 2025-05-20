@@ -1,0 +1,44 @@
+!
+! Title: OISD Blocklist Big
+! Description: List for blocking ads and trackers. Prioritizes functionality over blocking. Risks of incorrect blocking are higher than in the small version of OISD Blocklist.
+! Version: 1.0.58.88
+! Homepage: https://oisd.nl/
+! Last modified: 2025-05-19T15:08:04.907Z
+!
+! Compiled by @adguard/hostlist-compiler v1.0.35
+!
+
+||0--foodwarez.da.ru^
+||0-02.net^
+||0.101tubeporn.com^
+||0.myikas.com^
+||0.tcp.ngrok.io^
+||00-coopb144.com^
+||00-coopban523.com^
+||00-ird.weebly.com^
+||000.gaysexe.free.fr^
+||000.ueuo.com^
+||0000.ole32.com^
+||000000-reagan-login.weebly.com^
+||000000000000.ru^
+||0000000888.weebly.com^
+||00003.godaddysites.com^
+||00007771011.weebly.com^
+||0001proxy.notlong.com^
+||0002yr2.wcomhost.com^
+||00065455.weebly.com^
+||000aproxy.on-4.com^
+||000dn.com^
+||000ek4ploe.weebly.com^
+||000free.us^
+||000lk3v.wcomhost.com^
+||000lkub.rcomhost.com^
+||000ll4q.rcomhost.com^
+||000lp59.wcomhost.com^
+||000m9w3.wcomhost.com^
+||000macu.wcomhost.com^
+||000tristanprod.free.fr^
+||000webhost.fr^
+||000webhost.info^
+||001.0x1f4b0.com^
+||001.app^

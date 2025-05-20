@@ -65,6 +65,7 @@ RUN mkdir -p /usr/share/arp-scan /etc/arp-scan && \
     cp /usr/share/arp-scan/ieee-oui.txt /etc/arp-scan/mac-vendor.txt
 
 
+
 ARG ts
 ARG version
 LABEL org.opencontainers.image.created=$ts
