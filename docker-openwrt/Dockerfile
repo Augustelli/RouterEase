@@ -10,6 +10,7 @@ RUN opkg remove --force-depends \
       iw* && \
     opkg install \
       wpad-wolfssl \
+      curl \
       iw-full \
       ip-full \
       iptables \
@@ -39,6 +40,7 @@ RUN opkg remove --force-depends \
       luci-compat \
       luci-app-opkg  \
       luci-app-nlbwmon \
+      nlbwmon \
       luci-app-adblock-fast \
       python3-speedtest-cli \
       arp-scan \
@@ -49,6 +51,7 @@ RUN opkg remove --force-depends \
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
+RUN service nl
 
 COPY backend/controller/ /usr/lib/lua/luci/controller/
 COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/

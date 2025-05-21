@@ -1,116 +1,116 @@
 <%+header%>
 
-                                <h2>Network Speed Test</h2>
+<h2>Network Speed Test</h2>
 
-                                <div class="cbi-map">
-                                    <div class="cbi-section">
-                                        <div class="cbi-section-node">
-                                            <div class="cbi-value">
-                                                <button id="startTest" class="cbi-button cbi-button-apply">Start Speed Test</button>
-                                            </div>
+<div class="cbi-map">
+    <div class="cbi-section">
+        <div class="cbi-section-node">
+            <div class="cbi-value">
+                <button id="startTest" class="cbi-button cbi-button-apply">Start Speed Test</button>
+            </div>
 
-                                            <div id="testResults" style="display:none">
-                                                <div class="cbi-value">
-                                                    <label class="cbi-value-title">Status:</label>
-                                                    <div class="cbi-value-field" id="status">Ready</div>
-                                                </div>
-                                                <div class="cbi-value">
-                                                    <label class="cbi-value-title">Ping:</label>
-                                                    <div class="cbi-value-field" id="ping">-</div>
-                                                </div>
-                                                <div class="cbi-value">
-                                                    <label class="cbi-value-title">Download:</label>
-                                                    <div class="cbi-value-field" id="download">-</div>
-                                                </div>
-                                                <div class="cbi-value">
-                                                    <label class="cbi-value-title">Upload:</label>
-                                                    <div class="cbi-value-field" id="upload">-</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+            <div id="testResults" style="display:none">
+                <div class="cbi-value">
+                    <label class="cbi-value-title">Status:</label>
+                    <div class="cbi-value-field" id="status">Ready</div>
+                </div>
+                <div class="cbi-value">
+                    <label class="cbi-value-title">Ping:</label>
+                    <div class="cbi-value-field" id="ping">-</div>
+                </div>
+                <div class="cbi-value">
+                    <label class="cbi-value-title">Download:</label>
+                    <div class="cbi-value-field" id="download">-</div>
+                </div>
+                <div class="cbi-value">
+                    <label class="cbi-value-title">Upload:</label>
+                    <div class="cbi-value-field" id="upload">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-                                <script type="text/javascript">
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    var startBtn = document.getElementById('startTest');
-                                    var resultsDiv = document.getElementById('testResults');
-                                    var statusEl = document.getElementById('status');
-                                    var pingEl = document.getElementById('ping');
-                                    var downloadEl = document.getElementById('download');
-                                    var uploadEl = document.getElementById('upload');
+<script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        var startBtn = document.getElementById('startTest');
+        var resultsDiv = document.getElementById('testResults');
+        var statusEl = document.getElementById('status');
+        var pingEl = document.getElementById('ping');
+        var downloadEl = document.getElementById('download');
+        var uploadEl = document.getElementById('upload');
 
-                                    // Format speed in Mbps
-                                    function formatSpeed(bps) {
-                                        return (bps / 1000000).toFixed(2) + ' Mbps';
-                                    }
+        // Format speed in Mbps
+        function formatSpeed(bps) {
+            return (bps / 1000000).toFixed(2) + ' Mbps';
+        }
 
-                                    // Format ping in ms
-                                    function formatPing(ms) {
-                                        return ms.toFixed(1) + ' ms';
-                                    }
+        // Format ping in ms
+        function formatPing(ms) {
+            return ms.toFixed(1) + ' ms';
+        }
 
-                                    // Poll for status updates
-                                    function pollStatus() {
-                                        fetch('<%=url("admin/network/speedtest/status")%>', {
-                                            credentials: 'same-origin',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            }
-                                        })
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            if (data.status === 'running') {
-                                                statusEl.textContent = 'Running test...';
-                                                setTimeout(pollStatus, 1000);
-                                            } else if (data.status === 'complete') {
-                                                statusEl.textContent = 'Test complete';
-                                                pingEl.textContent = formatPing(data.data.ping.median);
-                                                downloadEl.textContent = formatSpeed(data.data.download.bps_mean);
-                                                uploadEl.textContent = formatSpeed(data.data.upload.bps_mean);
-                                                startBtn.disabled = false;
-                                            } else {
-                                                statusEl.textContent = 'Error: ' + (data.message || 'Unknown error');
-                                                startBtn.disabled = false;
-                                            }
-                                        })
-                                        .catch(error => {
-                                            statusEl.textContent = 'Error: ' + error.message;
-                                            startBtn.disabled = false;
-                                        });
-                                    }
+        // Poll for status updates
+        function pollStatus() {
+            fetch('<%=url("admin/network/speedtest/status")%>', {
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'running') {
+                        statusEl.textContent = 'Running test...';
+                        setTimeout(pollStatus, 1000);
+                    } else if (data.status === 'complete') {
+                        statusEl.textContent = 'Test complete';
+                        pingEl.textContent = formatPing(data.data.ping.median);
+                        downloadEl.textContent = formatSpeed(data.data.download.bps_mean);
+                        uploadEl.textContent = formatSpeed(data.data.upload.bps_mean);
+                        startBtn.disabled = false;
+                    } else {
+                        statusEl.textContent = 'Error: ' + (data.message || 'Unknown error');
+                        startBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    statusEl.textContent = 'Error: ' + error.message;
+                    startBtn.disabled = false;
+                });
+        }
 
-                                    // Start the speed test
-                                    startBtn.addEventListener('click', function() {
-                                        startBtn.disabled = true;
-                                        resultsDiv.style.display = 'block';
-                                        statusEl.textContent = 'Starting test...';
-                                        pingEl.textContent = '-';
-                                        downloadEl.textContent = '-';
-                                        uploadEl.textContent = '-';
+        // Start the speed test
+        startBtn.addEventListener('click', function () {
+            startBtn.disabled = true;
+            resultsDiv.style.display = 'block';
+            statusEl.textContent = 'Starting test...';
+            pingEl.textContent = '-';
+            downloadEl.textContent = '-';
+            uploadEl.textContent = '-';
 
-                                        fetch('<%=url("admin/network/speedtest/run")%>', {
-                                            credentials: 'same-origin',
-                                            headers: {
-                                                'Content-Type': 'application/json'
-                                            }
-                                        })
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            if (data.status === 'started') {
-                                                statusEl.textContent = 'Running test...';
-                                                setTimeout(pollStatus, 1000);
-                                            } else {
-                                                statusEl.textContent = 'Error starting test';
-                                                startBtn.disabled = false;
-                                            }
-                                        })
-                                        .catch(error => {
-                                            statusEl.textContent = 'Error: ' + error.message;
-                                            startBtn.disabled = false;
-                                        });
-                                    });
-                                });
-                                </script>
+            fetch('<%=url("admin/network/speedtest/run")%>', {
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'started') {
+                        statusEl.textContent = 'Running test...';
+                        setTimeout(pollStatus, 1000);
+                    } else {
+                        statusEl.textContent = 'Error starting test';
+                        startBtn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    statusEl.textContent = 'Error: ' + error.message;
+                    startBtn.disabled = false;
+                });
+        });
+    });
+</script>
 
-                                <%+footer%>
+<%+footer%>
