@@ -51,10 +51,11 @@ RUN opkg remove --force-depends \
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
-RUN service nl
+RUN  service nlbwmon enable
+RUN  service nlbwmon star
 
-COPY backend/controller/ /usr/lib/lua/luci/controller/
-COPY backend/view/router-ease /usr/lib/lua/luci/view/router-ease/
+COPY package/controller/ /usr/lib/lua/luci/controller/
+COPY package/view/router-ease /usr/lib/lua/luci/view/router-ease/
 
 
 RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true

@@ -1,0 +1,100 @@
+### Archivo de Configuración de OpenWrt ###
+
+## Configuración General
+# Versión de OpenWrt. Establece 'snapshot' para usar la última versión en desarrollo
+OPENWRT_SOURCE_VER=23
+
+# Arquitectura: elige una de las siguientes opciones:
+# - x86-64 (PCs y servidores estándar)
+# - armvirt-32 (Raspberry Pi 2/3/4)
+# - armvirt-64 (Raspberry Pi 3/4 con SO de 64 bits, ODroid-C2 o similar)
+# - bcm2708 (Raspberry Pi Zero)
+ARCH=x86-64
+
+# Imagen y etiqueta para la imagen Docker pre-construida, o para construcción local
+IMAGE=augustom/routerease
+TAG=latest
+
+# Nombre del contenedor
+CONTAINER=openwrt_1
+
+# Argumentos adicionales opcionales para Docker create
+# Ejemplo para PPPoE: "--device /dev/ppp"
+ADDITIONAL_DOCKER_CREATE_ARGS=""
+
+## Configuración de Red Docker
+# Nombre de la red WAN (Internet) en Docker
+WAN_NAME=openwrt-wan
+
+# Driver de red Docker para la interfaz WAN
+# - 'macvlan' para conexiones cableadas (Ethernet)
+# - 'ipvlan' para conexiones inalámbricas (experimental)
+WAN_DRIVER=macvlan
+
+# Interfaz del host que proporcionará la conexión WAN para OpenWrt
+WAN_PARENT=eth0
+
+# Servidor DNS upstream para OpenWrt (opcional, dejar en blanco para usar el predeterminado)
+UPSTREAM_DNS_SERVER=8.8.8.8
+
+# Nombre de la red LAN (red local) en Docker
+LAN_NAME=openwrt-lan
+
+# Driver de red Docker para la interfaz LAN, puede ser:
+# - 'bridge': Modo puente estándar
+# - 'macvlan': Para redes virtuales a nivel MAC
+# - 'ipvlan': Para redes virtuales a nivel IP
+# No cambiar a menos que tengas una buena razón
+LAN_DRIVER=bridge
+
+# Para el driver 'bridge', LAN_PARENT se añadirá al puente LAN
+# Para drivers 'macvlan' o 'ipvlan', se usa como interfaz padre para LAN
+# Puede ser una interfaz física o una interfaz VLAN si se opera con una sola NIC
+# Por ejemplo, si WAN_PARENT es eth0, LAN_PARENT puede ser eth0.10 para VLAN 10
+# La interfaz VLAN se creará si no existe y se eliminará al apagar
+LAN_PARENT=eth0.10
+
+# Dominio de búsqueda DNS para clientes DHCP en la LAN
+LAN_DOMAIN=home
+
+# Configuración de subred para la red LAN
+LAN_SUBNET=192.168.16.0/24
+
+# Establece LAN_ADDR a algo diferente de la primera dirección disponible en la subred
+# Docker reclamará esta dirección para el host
+LAN_ADDR=192.168.16.2
+
+# OpenWrt no acepta notación CIDR; debe coincidir con LAN_SUBNET
+LAN_NETMASK=255.255.255.0
+
+## Configuración WiFi
+# Habilitar o deshabilitar WiFi (true/false)
+WIFI_ENABLED=true
+
+# Interfaz WiFi a utilizar
+WIFI_IFACE=wlan0
+
+# Nombre de la red WiFi (SSID)
+WIFI_SSID=test123
+
+# Tipo de encriptación: psk (WPA), psk2 (WPA2), psk-mixed (WPA/WPA2)
+WIFI_ENCRYPTION=psk2
+
+# Contraseña de la red WiFi
+WIFI_KEY=12345678
+
+# Modo hairpin: permite que los clientes WiFi se comuniquen entre sí
+# Ver README.md para mayor explicación
+WIFI_HAIRPIN=false
+
+# ¡Solo se puede usar una de las siguientes secciones a la vez!
+
+## Configuración WiFi 5GHz 802.11ac (si tu hardware lo soporta)
+# WIFI_HW_MODE=11a
+# WIFI_HT_MODE=VHT80
+# WIFI_CHANNEL=36
+
+## Configuración WiFi 2.4GHz 802.11g
+WIFI_HW_MODE=11g
+WIFI_HT_MODE=HT20
+WIFI_CHANNEL=6

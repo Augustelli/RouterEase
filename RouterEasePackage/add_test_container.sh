@@ -7,15 +7,9 @@ docker run -d --name python-client \
     apk add --no-cache iputils gcc musl-dev python3-dev
     pip install --upgrade pip
     pip install speedtest-cli
-    # Set default route via OpenWrt
+    # default route via OpenWrt
     ip route del default 2>/dev/null
     ip route add default via 192.168.16.2
-
-    # Test connectivity
-    echo 'Python container configured with gateway at 192.168.16.2'
-    ping -c 4 192.168.16.2
-
-
-    # Keep container running
+    # Correr infinitamente el contenedor
     sleep infinity
   "
