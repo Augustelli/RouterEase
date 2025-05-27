@@ -114,7 +114,6 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Could not load OUI database: %v", err)
 		log.Println("Attempting to download database...")
-		// In a production app, we would implement a download routine here
 	}
 
 	// Command line mode
@@ -132,7 +131,7 @@ func main() {
 	}
 
 	// Server mode
-	http.HandleFunc("/api/mac-lookup", handleMacLookup)
+	http.HandleFunc("/", handleMacLookup)
 
 	port := ":8080"
 	log.Printf("Starting MAC lookup server on port %s", port)

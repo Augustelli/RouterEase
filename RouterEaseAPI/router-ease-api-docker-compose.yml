@@ -6,7 +6,7 @@ services:
       service: api-gateway
   dns:
     extends:
-      file: ./adguard/adguard-home.yml
+      file: DNS/adguard-home.yml
       service: dns
   mac-lookup:
     extends:
