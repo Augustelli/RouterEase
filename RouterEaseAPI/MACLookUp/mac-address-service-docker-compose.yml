@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  mac-lookup:
+    build: .
+    container_name: mac-lookup
+    ports:
+      - "8081:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.macaddress.rule=PathPrefix(`/routerease/mac-address/`)"
+      - "traefik.http.services.macaddress.loadbalancer.server.port=8080"
+    networks:
+      - openwrt-lan
+    restart: unless-stopped
+
+networks:
+  openwrt-lan:

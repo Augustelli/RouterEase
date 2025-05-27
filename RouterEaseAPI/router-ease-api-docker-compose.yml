@@ -1,0 +1,17 @@
+name: router-ease-api
+services:
+  api-gateway:
+    extends:
+      file: ./APIGateway/traefik-docker-compose.yaml
+      service: api-gateway
+  dns:
+    extends:
+      file: ./adguard/adguard-home.yml
+      service: dns
+  mac-lookup:
+    extends:
+      file: ./MACLookUp/mac-address-service-docker-compose.yml
+      service: mac-lookup
+
+networks:
+    openwrt-lan:
