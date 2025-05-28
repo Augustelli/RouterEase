@@ -1,0 +1,38 @@
+services:
+  powerdns:
+    image: powerdns/pdns-recursor-52
+    container_name: pdns-recursor
+    ports:
+      - "5301:53/udp"
+      - "5301:53/tcp"
+    environment:
+      - PDNS_RECURSOR_ALLOW_FROM=0.0.0.0/0
+    networks:
+      openwrt-lan:
+        ipv4_address: 172.20.0.2
+    volumes:
+      - ./pdns-recursor.conf:/etc/powerdns-recursor/recursor.conf
+
+  dnsdist:
+    image: powerdns/dnsdist-20
+    container_name: dnsdist
+    ports:
+      - "8053:53/udp"
+      - "8053:53/tcp"
+      - "8083:8083"
+    environment:
+      - DNSDIST_WEBPASSWORD=admin
+    volumes:
+      - ./dnsdist.conf:/etc/dnsdist/dnsdist.conf
+    depends_on:
+      - powerdns
+    networks:
+      openwrt-lan:
+        ipv4_address: 172.20.0.3
+
+networks:
+  openwrt-lan:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
