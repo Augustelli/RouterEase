@@ -1,0 +1,52 @@
+# my global config
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+  body_size_limit: 15MB
+  sample_limit: 1500
+  target_limit: 30
+  label_limit: 30
+  label_name_length_limit: 200
+  label_value_length_limit: 200
+  query_log_file: query.log
+  scrape_failure_log_file: fail.log
+
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'traefik'
+    static_configs:
+      - targets: ['api-gateway:8082']
+
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+
+  - job_name: 'docker'
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        filters:
+          - name: label
+            values: ["prometheus.scrape=true"]
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_label_prometheus_port']
+        target_label: '__address__'
+        replacement: '${1}:${2}'
+
+    - job_name: 'powerdns'
+      static_configs:
+        - targets: ['powerdns:8081']
+      metrics_path: '/api/v1/servers/localhost/statistics'
+      params:
+        format: ['prometheus']
+      basic_auth:  # If you have API key authentication enabled
+        username: 'api-username'
+        password: 'api-key'
+
+    - job_name: 'mac-lookup'
+      static_configs:
+        - targets: ['mac-lookup-service:8080']

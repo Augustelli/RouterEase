@@ -4,3 +4,17 @@ providers:
 api:
   insecure: true
   dashboard: true
+tracing:
+  otlp:
+    http:
+      endpoint: http://jaeger:4318/v1/traces
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0

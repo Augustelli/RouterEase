@@ -18,6 +18,10 @@ services:
     extends:
       file: ./MACLookUp/mac-address-service-docker-compose.yml
       service: mac-lookup
+  jaeger:
+    extends:
+      file: ./Observability/Jaeger/jaeger-docker-compose.yaml
+      service: jaeger
 
 networks:
   openwrt-lan:

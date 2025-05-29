@@ -13,7 +13,6 @@ services:
     networks:
       - openwrt-lan
       - backend-network
-
 networks:
   openwrt-lan:
   backend-network:

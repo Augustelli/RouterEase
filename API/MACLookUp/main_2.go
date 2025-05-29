@@ -155,6 +155,7 @@ func main() {
     // Server mode with logging
     handler := http.HandlerFunc(handleMacLookup)
     http.Handle("/", loggingMiddleware(handler))
+    http.Handle("/metrics", loggingMiddleware(handler))
     http.Handle("/api/mac-lookup", loggingMiddleware(handler))
     http.Handle("/routerease/mac-address/api/mac-lookup", loggingMiddleware(handler))
 
