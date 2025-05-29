@@ -23,6 +23,11 @@ services:
       file: ./Observability/Jaeger/jaeger-docker-compose.yaml
       service: jaeger
 
+  prometheus:
+    extends:
+      file: ./Observability/Prometheus/prometheus-docker-compose.yaml
+      service: prometheus
+
 networks:
   openwrt-lan:
 

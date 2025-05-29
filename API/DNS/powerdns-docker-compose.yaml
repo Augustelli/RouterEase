@@ -14,8 +14,6 @@ services:
   dns_entrypoint:
     image: powerdns/dnsdist-20
     container_name: dns_entrypoint
-#    ports:
-#      - "8083:8083"
     environment:
       - DNSDIST_WEBPASSWORD=admin
     volumes:

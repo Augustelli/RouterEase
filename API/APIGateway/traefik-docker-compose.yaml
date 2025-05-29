@@ -9,6 +9,8 @@ services:
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/logs"
+
     restart: unless-stopped
     networks:
       - openwrt-lan

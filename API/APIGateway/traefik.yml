@@ -18,3 +18,15 @@ metrics:
       - 0.3
       - 1.2
       - 5.0
+accessLog:
+    filePath: /logs/access.log
+    bufferingSize: 100
+
+
+entryPoints:
+  http:
+    address: ":80"
+  dns-tcp:
+    address: ":53/tcp"
+  dns-udp:
+    address: ":53/udp"
