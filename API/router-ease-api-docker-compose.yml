@@ -1,0 +1,34 @@
+name: router-ease-api
+services:
+  api-gateway:
+    extends:
+      file: ./APIGateway/traefik-docker-compose.yaml
+      service: api-gateway
+  dns:
+    extends:
+      file: DNS/powerdns-docker-compose.yaml
+      service: dns
+
+  dns_entrypoint:
+    extends:
+      file: DNS/powerdns-docker-compose.yaml
+      service: dns_entrypoint
+
+  mac-lookup:
+    extends:
+      file: ./MACLookUp/mac-address-service-docker-compose.yml
+      service: mac-lookup
+
+networks:
+  openwrt-lan:
+
+
+  backend-network:
+    driver: bridge
+    external: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+
+# docker network create --subnet=172.20.0.0/24 backend-network
