@@ -18,6 +18,7 @@ services:
     extends:
       file: ./MACLookUp/mac-address-service-docker-compose.yml
       service: mac-lookup
+
   jaeger:
     extends:
       file: ./Observability/Jaeger/jaeger-docker-compose.yaml
@@ -27,6 +28,16 @@ services:
     extends:
       file: ./Observability/Prometheus/prometheus-docker-compose.yaml
       service: prometheus
+
+  authentication:
+    extends:
+      file: ./Authentication/keycloak-docker-compose.yaml
+      service: authentication
+
+  auth_db:
+    extends:
+      file: ./Authentication/keycloak-docker-compose.yaml
+      service: auth_db
 
 networks:
   openwrt-lan:
