@@ -1,0 +1,10 @@
+services:
+  go-proxie:
+    image: ghcr.io/router-ease/go-proxie:latest
+    build : Dockerfile
+    container_name: go-proxie
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+    networks:
+      - backend-network

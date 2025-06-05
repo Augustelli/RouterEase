@@ -1,9 +1,9 @@
 name: router-ease-api
 services:
-  api-gateway:
+  reverse_proxie:
     extends:
-      file: ./APIGateway/traefik-docker-compose.yaml
-      service: api-gateway
+      file: ReverseProxie/traefik-docker-compose.yaml
+      service: reverse_proxie
   dns:
     extends:
       file: DNS/powerdns-docker-compose.yaml

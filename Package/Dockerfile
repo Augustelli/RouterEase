@@ -28,7 +28,6 @@ RUN opkg remove --force-depends \
       libubus-lua \
       libuci-lua \
       luci-lib-jsonc \
-      speedtest-netperf \
       luci-app-firewall \
       luci-app-nft-qos \
       luci-theme-openwrt-2020 \

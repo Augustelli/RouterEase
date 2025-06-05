@@ -1,8 +1,8 @@
 version: "3.8"
 services:
-  api-gateway:
+  reverse_proxie:
     image: traefik:v3
-    container_name: api-gateway
+    container_name: reverse_proxie
     ports:
       - "8080:8080"
       - "9080:80"
