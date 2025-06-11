@@ -8,3 +8,21 @@ services:
     restart: unless-stopped
     networks:
       - backend-network
+
+  dns_db:
+    image: postgres:alpine
+    container_name: dns-postgres
+    environment:
+      POSTGRES_DB: dns
+      POSTGRES_USER: dns
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./dns-volumen:/var/lib/postgresql/data
+    networks:
+      - backend-network
+    ports:
+      - "5433:5432"
+
+
+volumes:
+    dns-volumen:

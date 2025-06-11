@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	services.InitializeDB()
 	http.HandleFunc("/dns-query", services.DoHandler)
 	log.Println("Starting proxy on :8087")
 	log.Fatal(http.ListenAndServe(":8087", nil))

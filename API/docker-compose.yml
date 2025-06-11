@@ -35,6 +35,11 @@ services:
       file: ./Authentication/keycloak-docker-compose.yaml
       service: auth_db
 
+  dns_db:
+    extends:
+      file: ./GO-Proxie/go-proxie-docker-compose.yaml
+      service: dns_db
+
 networks:
   openwrt-lan:
 
