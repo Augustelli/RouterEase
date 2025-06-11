@@ -13,29 +13,5 @@ services:
       - "5301:53/tcp"
       - "5301:53/udp"
 
-#  dns_entrypoint:
-#    image: powerdns/dnsdist-20
-#    container_name: dns_entrypoint
-#    environment:
-#      - DNSDIST_WEBPASSWORD=admin
-#    volumes:
-#      - ./dnsdist.conf:/etc/dnsdist/dnsdist.conf
-#    depends_on:
-#      - dns
-#    ports:
-#      - "5300:53/tcp"
-#      - "5300:53/udp"
-#    networks:
-#      - backend-network
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.tcp.routers.dns-tcp.rule=HostSNI(`*`)"
-#      - "traefik.tcp.routers.dns-tcp.entrypoints=dns-tcp"
-#      - "traefik.tcp.routers.dns-tcp.service=dns-tcp-service"
-#      - "traefik.tcp.services.dns-tcp-service.loadbalancer.server.port=53"
-#      - "traefik.udp.routers.dns-udp.entrypoints=dns-udp"
-#      - "traefik.udp.routers.dns-udp.service=dns-udp-service"
-#      - "traefik.udp.services.dns-udp-service.loadbalancer.server.port=53"
-
 networks:
   backend-network:

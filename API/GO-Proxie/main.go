@@ -9,21 +9,19 @@ import (
 	"strings"
 )
 
-// Blocklists for each group
 var blocklists = map[string][]string{
 	"ParentalControl": {"adultsite.com", "explicitcontent.com"},
 	"Adblocking":      {"tracker.com", "ads.com"},
 	"Common":          {}, // No filtering
 }
 
-// Group mapping (UUID -> Group)
-var userGroups = map[string]string{
-	"07a5b831-2aab-4d57-8517-41fc29195f78": "ParentalControl",
-	"54eed05e-2947-42cd-a519-9fe14455aade": "Adblocking",
-	"4089f0e0-cbf2-4652-bedb-cddad94a9448": "Common",
+// Group mapping (UUID -> Groups)
+var userGroups = map[string][]string{
+	"07a5b831-2aab-4d57-8517-41fc29195f78": {"ParentalControl", "Adblocking"},
+	"54eed05e-2947-42cd-a519-9fe14455aade": {"Adblocking"},
+	"4089f0e0-cbf2-4652-bedb-cddad94a9448": {"Common"},
 }
 
-// Middleware to handle DoH requests
 func dohHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract JWT from Authorization header
 	authHeader := r.Header.Get("Authorization")
@@ -50,15 +48,20 @@ func dohHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Map UUID to group
-	group, exists := userGroups[uuid]
+	// Map UUID to groups
+	groups, exists := userGroups[uuid]
 	if !exists {
-		http.Error(w, "User group not found", http.StatusForbidden)
+		http.Error(w, "User groups not found", http.StatusForbidden)
 		return
 	}
 
-	// Apply filtering based on group
-	blocklist := blocklists[group]
+	// Combine blocklists from all groups
+	blocklist := []string{}
+	for _, group := range groups {
+		blocklist = append(blocklist, blocklists[group]...)
+	}
+
+	// Apply filtering based on combined blocklist
 	query := r.URL.Query().Get("name") // Extract DNS query name
 	for _, blockedDomain := range blocklist {
 		if strings.Contains(query, blockedDomain) {

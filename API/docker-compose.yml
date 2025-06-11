@@ -9,10 +9,6 @@ services:
       file: DNS/powerdns-docker-compose.yaml
       service: dns
 
-  dns_entrypoint:
-    extends:
-      file: DNS/powerdns-docker-compose.yaml
-      service: dns_entrypoint
 
   mac-lookup:
     extends:
