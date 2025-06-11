@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/miekg/dns"
 	"log"
 	"net/http"
 	"strings"
@@ -61,23 +62,42 @@ func dohHandler(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("name") // Extract DNS query name
 	for _, blockedDomain := range blocklist {
 		if strings.Contains(query, blockedDomain) {
-			http.Error(w, fmt.Sprintf("Blocked domain: %s", blockedDomain), http.StatusForbidden)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(fmt.Sprintf("%s\t0\tIN\tA\tNXDOMAIN\n", query)))
 			return
 		}
 	}
 
-	// Forward request to dnsdist
-	// Example: Forwarding to dnsdist running on localhost:5300
-	resp, err := http.Get(fmt.Sprintf("http://localhost:5300?name=%s", query))
+	// Forward request to PowerDNS
+	answers, err := queryPowerDNS(query)
 	if err != nil {
 		http.Error(w, "Error forwarding request", http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
 
-	// Relay response back to client
-	w.WriteHeader(resp.StatusCode)
-	_, _ = w.Write([]byte("Query forwarded successfully"))
+	// Relay DNS response back to client
+	w.WriteHeader(http.StatusOK)
+	for _, answer := range answers {
+		_, _ = w.Write([]byte(answer.String() + "\n"))
+	}
+}
+
+func queryPowerDNS(domain string) ([]dns.RR, error) {
+	// Create a new DNS message
+	m := new(dns.Msg)
+	m.SetQuestion(dns.Fqdn(domain), dns.TypeA) // Query for A record
+
+	// Set up the DNS client
+	c := new(dns.Client)
+
+	// Send the query to the PowerDNS server
+	r, _, err := c.Exchange(m, "localhost:5301") // PowerDNS server address
+	if err != nil {
+		return nil, fmt.Errorf("failed to query PowerDNS: %v", err)
+	}
+
+	// Return the response answers
+	return r.Answer, nil
 }
 
 func main() {
