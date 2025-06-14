@@ -28,3 +28,6 @@
 172.20.0.1 - - [14/Jun/2025:16:52:39 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/1.1" 404 19 "-" "-" 5 "-" "-" 0ms
 172.20.0.1 - - [14/Jun/2025:16:52:44 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/1.1" 200 37 "-" "-" 6 "go-proxie@docker" "http://172.20.0.5:8080" 266ms
 172.20.0.1 - - [14/Jun/2025:16:57:36 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/1.1" 200 37 "-" "-" 1 "go-proxie@docker" "http://172.20.0.9:8080" 329ms
+172.20.0.1 - - [14/Jun/2025:17:02:08 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/1.1" 200 37 "-" "-" 1 "go-proxie@docker" "http://172.20.0.6:8080" 369ms
+172.20.0.1 - - [14/Jun/2025:17:02:24 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/2.0" 401 13 "-" "-" 2 "go-proxie@docker" "http://172.20.0.6:8080" 1ms
+172.20.0.1 - - [14/Jun/2025:17:02:24 +0000] "GET /favicon.ico HTTP/2.0" 404 19 "-" "-" 3 "-" "-" 0ms
