@@ -28,9 +28,13 @@ services:
     command: start-dev
     depends_on:
       - auth_db
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.keycloak.rule=Host(`auth.docker.localhost`)"
-#      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentication.rule=PathPrefix(`/routerease/user/`)"
+      - "traefik.http.routers.authentication.middlewares=authentication-stripprefix"
+      - "traefik.http.middlewares.authentication-stripprefix.stripprefix.prefixes=/routerease/user"
+      - "traefik.http.services.authentication.loadbalancer.server.port=8080"
+      - "traefik.http.routers.authentication.tls=true"
+      - "traefik.http.routers.authentication.tls.certresolver=letsencrypt"
     networks:
       - backend-network

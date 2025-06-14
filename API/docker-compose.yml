@@ -4,10 +4,23 @@ services:
     extends:
       file: ReverseProxie/traefik-docker-compose.yaml
       service: reverse_proxie
+
+  whoami:
+    extends:
+      file: ReverseProxie/traefik-docker-compose.yaml
+      service: whoami
+
+
   dns:
     extends:
       file: DNS/powerdns-docker-compose.yaml
       service: dns
+
+
+  go-proxie:
+    extends:
+      file: GO-Proxie/go-proxie-docker-compose.yaml
+      service: go-proxie
 
 
   mac-lookup:

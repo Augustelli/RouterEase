@@ -4,6 +4,14 @@ providers:
 api:
   insecure: true
   dashboard: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: a.mancuso@alumno.um.edu.ar
+      storage: acme.json
+      httpChallenge:
+        entryPoint: http
 tracing:
   otlp:
     http:
@@ -26,6 +34,8 @@ accessLog:
 entryPoints:
   http:
     address: ":80"
+  https:
+    address: ":443"
   dns-tcp:
     address: ":53/tcp"
   dns-udp:

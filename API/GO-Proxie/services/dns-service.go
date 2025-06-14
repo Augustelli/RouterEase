@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// TODO REFACTORING: Move blocklists and userGroups to a configuration file or database
 var blocklists = map[string][]string{
 	"ParentalControl": {"adultsite.com", "explicitcontent.com"},
 	"Adblocking":      {"tracker.com", "ads.com"},
@@ -93,7 +94,7 @@ func queryPowerDNS(domain string) ([]dns.RR, error) {
 	c := new(dns.Client)
 
 	// Send the query to the PowerDNS server
-	r, _, err := c.Exchange(m, "localhost:5301") // PowerDNS server address
+	r, _, err := c.Exchange(m, "dns:53") // PowerDNS server address
 	if err != nil {
 		return nil, fmt.Errorf("failed to query PowerDNS: %v", err)
 	}

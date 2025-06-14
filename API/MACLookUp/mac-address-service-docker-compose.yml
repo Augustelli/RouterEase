@@ -1,14 +1,13 @@
-version: "3.8"
 services:
   mac-lookup:
     build: .
     container_name: mac-lookup
-#    ports:
-#      - "8081:8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.macaddress.rule=PathPrefix(`/routerease/mac-address/`)"
-      - "traefik.http.services.macaddress.loadbalancer.server.port=8080"
+      - "traefik.http.routers.mac-address.rule=PathPrefix(`/routerease/mac-address/`)"
+      - "traefik.http.services.mac-address.loadbalancer.server.port=8080"
+      - "traefik.http.routers.mac-address.tls=true"
+      - "traefik.http.routers.mac-address.tls.certresolver=letsencrypt"
     networks:
       - backend-network
     restart: unless-stopped
