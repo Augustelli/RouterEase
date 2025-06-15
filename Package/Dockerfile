@@ -2,15 +2,13 @@ FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
 
-
-RUN opkg update
 RUN opkg remove --force-depends \
       dnsmasq* \
       wpad* \
-      iw* && \
+      iw* &&  \
+    opkg update && \
     opkg install \
       wpad-wolfssl \
-      curl \
       iw-full \
       ip-full \
       iptables \
@@ -28,6 +26,7 @@ RUN opkg remove --force-depends \
       libubus-lua \
       libuci-lua \
       luci-lib-jsonc \
+      speedtest-netperf \
       luci-app-firewall \
       luci-app-nft-qos \
       luci-theme-openwrt-2020 \
@@ -39,7 +38,6 @@ RUN opkg remove --force-depends \
       luci-compat \
       luci-app-opkg  \
       luci-app-nlbwmon \
-      nlbwmon \
       luci-app-adblock-fast \
       python3-speedtest-cli \
       arp-scan \
