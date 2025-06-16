@@ -36,5 +36,6 @@ services:
       - "traefik.http.services.authentication.loadbalancer.server.port=8080"
       - "traefik.http.routers.authentication.tls=true"
       - "traefik.http.routers.authentication.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.authentication.middlewares=cors-all@file"
     networks:
       - backend-network

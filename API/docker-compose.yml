@@ -54,9 +54,7 @@ services:
       service: dns_db
 
 networks:
-  openwrt-lan:
-
-
+  openwrt-wan:
   backend-network:
     driver: bridge
     external: true

@@ -2,6 +2,7 @@ module("luci.controller.router-ease", package.seeall)
 
 local dispatcher = require "luci.dispatcher"
 
+
 function index()
      -- Add authentication requirement to fix the visibility issue
      local page = entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60)
@@ -19,9 +20,9 @@ function index()
 -- Quality of Service (working correctly)
      entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
 
--- Main bandwidth monitoring page
+-- Main bandwidth monitoring page|
      entry({"admin", "router-ease", "bandwidth"}, view("nlbw/display"), _("Bandwidth Monitor"), 35)
-
+     entry({"admin", "router-ease", "settings"}, template("router-ease/settings"), "Settings", 10)
      -- Sub-pages if desired (optional)
      entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), _("Configuration"))
      entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), _("Backup"))
@@ -31,7 +32,6 @@ function index()
      entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
      entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
      entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
-
 
      -- Add these inside your index() function
      entry({"admin", "network", "speedtest"}, template("router-ease/speed-test"), _("Speed Test"), 90)
@@ -427,3 +427,5 @@ function action_speedtest_status()
         })
     end
 end
+
+--- Auth user

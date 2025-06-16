@@ -27,10 +27,27 @@ metrics:
       - 1.2
       - 5.0
 accessLog:
-    filePath: /logs/access.log
-    bufferingSize: 100
+  filePath: /logs/access.log
+  bufferingSize: 100
 
 
+http:
+  middlewares:
+    cors-all:
+      headers:
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+          - DELETE
+          - PATCH
+        accessControlAllowHeaders:
+          - "*"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 100
 entryPoints:
   http:
     address: ":80"

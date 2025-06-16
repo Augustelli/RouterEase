@@ -18,8 +18,7 @@ services:
     restart: unless-stopped
 
     networks:
-      openwrt-lan:
-
+      openwrt-wan:
       backend-network:
         ipv4_address: 172.20.0.10
 
@@ -38,7 +37,7 @@ services:
     - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
 
 networks:
-  openwrt-lan:
+  openwrt-wan:
   backend-network:
     driver: bridge
     ipam:

@@ -16,6 +16,7 @@ services:
       - "traefik.http.services.go-proxie.loadbalancer.server.port=8080"
       - "traefik.http.routers.go-proxie.tls=true"
       - "traefik.http.routers.go-proxie.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.go-proxie.middlewares=cors-all@file"
 
   dns_db:
     image: postgres:alpine
