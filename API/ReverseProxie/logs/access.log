@@ -31,3 +31,14 @@
 172.20.0.1 - - [14/Jun/2025:17:02:08 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/1.1" 200 37 "-" "-" 1 "go-proxie@docker" "http://172.20.0.6:8080" 369ms
 172.20.0.1 - - [14/Jun/2025:17:02:24 +0000] "GET /routerease/dns/dns-query?name=google.com HTTP/2.0" 401 13 "-" "-" 2 "go-proxie@docker" "http://172.20.0.6:8080" 1ms
 172.20.0.1 - - [14/Jun/2025:17:02:24 +0000] "GET /favicon.ico HTTP/2.0" 404 19 "-" "-" 3 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:25:33 +0000] "GET / HTTP/1.1" 404 19 "-" "-" 1 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:30:39 +0000] "GET /routerease/mac-address/?mac=f8:b4:6a:14:3d:e5 HTTP/1.1" 404 19 "-" "-" 2 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:32:44 +0000] "GET /routerease/mac-address/?mac=f8:b4:6a:14:3d:e5 HTTP/1.1" 404 19 "-" "-" 3 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:33:42 +0000] "GET /routerease/mac-address/?mac=f8:b4:6a:14:3d:e5 HTTP/1.1" 404 19 "-" "-" 4 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:35:08 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 5 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:35:18 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 6 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:35:24 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 7 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:35:53 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 8 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:36:39 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 1 "-" "-" 0ms
+172.20.0.1 - - [16/Jun/2025:20:41:54 +0000] "GET /routerease/mac-address/ HTTP/1.1" 400 24 "-" "-" 1 "mac-address@docker" "http://172.20.0.5:8080" 1ms
+172.20.0.1 - - [16/Jun/2025:20:42:05 +0000] "GET /routerease/mac-address/?mac=f8:b4:6a:14:3d:e5 HTTP/1.1" 200 79 "-" "-" 2 "mac-address@docker" "http://172.20.0.5:8080" 0ms

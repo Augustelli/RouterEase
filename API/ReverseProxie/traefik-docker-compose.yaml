@@ -11,6 +11,7 @@ services:
       - "5353:53/tcp"
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml
+      - ./middlewares.yml:/etc/traefik/middlewares.yml
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/logs
       - ./acme.json:/acme.json

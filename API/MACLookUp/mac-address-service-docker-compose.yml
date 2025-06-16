@@ -9,7 +9,6 @@ services:
       - "traefik.http.routers.mac-address.tls=true"
       - "traefik.http.routers.mac-address.tls.certresolver=letsencrypt"
       - "traefik.http.routers.mac-address.middlewares=cors-all@file"
-
     networks:
       - backend-network
     restart: unless-stopped

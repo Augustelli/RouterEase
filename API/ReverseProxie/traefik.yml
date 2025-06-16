@@ -1,4 +1,6 @@
 providers:
+  file:
+    filename: /etc/traefik/middlewares.yml
   docker:
     defaultRule: "Host(`{{ trimPrefix `/` .Name }}.docker.localhost`)"
 api:
@@ -30,24 +32,6 @@ accessLog:
   filePath: /logs/access.log
   bufferingSize: 100
 
-
-http:
-  middlewares:
-    cors-all:
-      headers:
-        accessControlAllowOriginList:
-          - "*"
-        accessControlAllowMethods:
-          - GET
-          - OPTIONS
-          - PUT
-          - POST
-          - DELETE
-          - PATCH
-        accessControlAllowHeaders:
-          - "*"
-        accessControlAllowCredentials: true
-        accessControlMaxAge: 100
 entryPoints:
   http:
     address: ":80"
