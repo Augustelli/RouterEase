@@ -1,9 +1,19 @@
 providers:
+  file:
+    filename: /etc/traefik/middlewares.yml
   docker:
     defaultRule: "Host(`{{ trimPrefix `/` .Name }}.docker.localhost`)"
 api:
   insecure: true
   dashboard: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: a.mancuso@alumno.um.edu.ar
+      storage: acme.json
+      httpChallenge:
+        entryPoint: http
 tracing:
   otlp:
     http:
@@ -19,13 +29,20 @@ metrics:
       - 1.2
       - 5.0
 accessLog:
-    filePath: /logs/access.log
-    bufferingSize: 100
-
+  filePath: /logs/access.log
+  bufferingSize: 100
 
 entryPoints:
   http:
     address: ":80"
+#    http:
+#      redirections:
+#        entryPoint:
+#          to: https
+#          scheme: https
+#          permanent: true
+  https:
+    address: ":443"
   dns-tcp:
     address: ":53/tcp"
   dns-udp:

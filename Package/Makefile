@@ -16,6 +16,7 @@ clean:
 	docker rm ${CONTAINER} || true
 	docker network rm ${LAN_NAME} ${WAN_NAME} || true
 
+
 install:
 	install -Dm644 openwrt.service /usr/lib/systemd/system/openwrt.service
 	sed -i -E "s#(ExecStart=).*#\1`pwd`/run.sh#g" /usr/lib/systemd/system/openwrt.service

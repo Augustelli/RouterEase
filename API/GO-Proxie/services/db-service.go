@@ -6,9 +6,9 @@ import (
 	"log"
 )
 
-// InitializeDB initializes the database connection
 func InitializeDB() *gorm.DB {
-	dsn := "host=localhost user=dns password=password dbname=dns port=5433 sslmode=disable"
+
+	dsn := "host=dns_db user=dns password=password dbname=dns port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

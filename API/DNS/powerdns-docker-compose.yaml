@@ -9,9 +9,9 @@ services:
       - backend-network
     volumes:
       - ./pdns-recursor.conf:/etc/powerdns-recursor/recursor.conf
-    ports:
-      - "5301:53/tcp"
-      - "5301:53/udp"
+#    ports:
+#      - "5301:53/tcp"
+#      - "5301:53/udp"
 
 networks:
   backend-network:

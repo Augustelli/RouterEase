@@ -59,6 +59,7 @@ LAN_DOMAIN=home
 
 # Configuración de subred para la red LAN
 LAN_SUBNET=192.168.16.0/24
+WAN_SUBNET=172.19.0.0/24
 
 # Establece LAN_ADDR a algo diferente de la primera dirección disponible en la subred
 # Docker reclamará esta dirección para el host

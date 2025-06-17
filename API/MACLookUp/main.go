@@ -19,6 +19,13 @@ type Device struct {
 	IsRandom     bool   `json:"is_random"`
 }
 
+type DeviceFull struct {
+	MAC          string `json:"mac"`
+	Manufacturer string `json:"manufacturer"`
+	Type         string `json:"type,omitempty"`
+	IsRandom     bool   `json:"is_random"`
+}
+
 var ouiDB = make(map[string]string)
 
 func loadOUIDatabase(filepath string) error {
@@ -105,7 +112,44 @@ func handleMacLookup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(device)
 }
+func handleMacLookupFull(w http.ResponseWriter, r *http.Request) {
+	var requestBody struct {
+		Devices []map[string]interface{} `json:"devices"`
+	}
 
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	for i, device := range requestBody.Devices {
+		mac, ok := device["mac"].(string)
+		if !ok || mac == "" {
+			device["manufacturer"] = "Invalid MAC"
+			continue
+		}
+
+		manufacturer := getManufacturer(mac)
+		isRandom := isRandomizedMAC(mac)
+
+		device["manufacturer"] = manufacturer
+		device["is_random"] = isRandom
+
+		// Infer device type if possible
+		if strings.Contains(strings.ToLower(manufacturer), "apple") {
+			device["type"] = "iOS/Mac Device"
+		} else if strings.Contains(strings.ToLower(manufacturer), "samsung") {
+			device["type"] = "Samsung Device"
+		} else {
+			device["type"] = "Unknown"
+		}
+
+		requestBody.Devices[i] = device
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(requestBody)
+}
 func main() {
 	// Load IEEE OUI database
 
@@ -131,7 +175,8 @@ func main() {
 	}
 
 	// Server mode
-	http.HandleFunc("/", handleMacLookup)
+	http.HandleFunc("/", handleMacLookupFull)
+	//http.HandleFunc("/", handleMacLookup)
 
 	port := ":8080"
 	log.Printf("Starting MAC lookup server on port %s", port)

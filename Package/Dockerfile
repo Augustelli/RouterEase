@@ -2,15 +2,13 @@ FROM scratch
 ADD rootfs.tar.gz /
 RUN mkdir -p /var/lock
 
-
-RUN opkg update
 RUN opkg remove --force-depends \
       dnsmasq* \
       wpad* \
-      iw* && \
+      iw* &&  \
+    opkg update && \
     opkg install \
       wpad-wolfssl \
-      curl \
       iw-full \
       ip-full \
       iptables \
@@ -28,6 +26,7 @@ RUN opkg remove --force-depends \
       libubus-lua \
       libuci-lua \
       luci-lib-jsonc \
+      speedtest-netperf \
       luci-app-firewall \
       luci-app-nft-qos \
       luci-theme-openwrt-2020 \
@@ -39,9 +38,10 @@ RUN opkg remove --force-depends \
       luci-compat \
       luci-app-opkg  \
       luci-app-nlbwmon \
-      nlbwmon \
       luci-app-adblock-fast \
       python3-speedtest-cli \
+      https-dns-proxy \
+      luci-app-https-dns-proxy \
       arp-scan \
       qrencode
 
@@ -50,11 +50,12 @@ RUN opkg remove --force-depends \
 RUN /etc/init.d/uhttpd enable
 RUN /etc/init.d/uhttpd restart
 RUN /etc/init.d/rpcd enable
+RUN /etc/init.d/rpcd restart
 RUN  service nlbwmon enable
 RUN  service nlbwmon star
 
 COPY package/controller/ /usr/lib/lua/luci/controller/
-COPY package/view/router-ease /usr/lib/lua/luci/view/router-ease/
+COPY package/view/router-ease/ /usr/lib/lua/luci/view/router-ease/
 
 
 RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true

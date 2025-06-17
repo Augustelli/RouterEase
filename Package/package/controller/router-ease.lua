@@ -2,6 +2,7 @@ module("luci.controller.router-ease", package.seeall)
 
 local dispatcher = require "luci.dispatcher"
 
+
 function index()
      -- Add authentication requirement to fix the visibility issue
      local page = entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60)
@@ -19,9 +20,9 @@ function index()
 -- Quality of Service (working correctly)
      entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
 
--- Main bandwidth monitoring page
+-- Main bandwidth monitoring page|
      entry({"admin", "router-ease", "bandwidth"}, view("nlbw/display"), _("Bandwidth Monitor"), 35)
-
+     entry({"admin", "router-ease", "settings"}, template("router-ease/settings"), "Settings", 10)
      -- Sub-pages if desired (optional)
      entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), _("Configuration"))
      entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), _("Backup"))
@@ -31,7 +32,6 @@ function index()
      entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
      entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
      entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
-
 
      -- Add these inside your index() function
      entry({"admin", "network", "speedtest"}, template("router-ease/speed-test"), _("Speed Test"), 90)
@@ -186,22 +186,18 @@ function get_connected_devices()
     local devices = {}
     local hostnames = {}
 
-    -- Load manufacturer database as fallback
-    local manufacturers = {}
-    if nixio.fs.access("/usr/share/arp-scan/ieee-oui.txt") then
-        for line in io.lines("/usr/share/arp-scan/ieee-oui.txt") do
-            local mac_prefix, manufacturer = line:match("^([0-9A-F]+)%s+(.+)$")
-            if mac_prefix then
-                manufacturers[mac_prefix] = manufacturer
+    -- Function to get manufacturer from external service
+    local function get_manufacturer(mac)
+        if not mac then return nil end
+        local url = "http://localhost/routerease/mac-address/?mac=" .. mac
+        local resp = util.exec("curl -s '" .. url .. "'")
+        if resp and #resp > 0 then
+            local data = json.parse(resp)
+            if data and data.manufacturer then
+                return data.manufacturer
             end
         end
-    end
-
-    -- Function to get manufacturer from MAC
-    local function get_manufacturer(mac)
-        if not mac then return "Unknown" end
-        local prefix = mac:gsub(":", ""):sub(1, 6):upper()
-        return manufacturers[prefix] or "Unknown"
+        return nil
     end
 
     -- Get DHCP leases for hostname mapping
@@ -225,36 +221,30 @@ function get_connected_devices()
 
     -- Process arp-scan results
     for line in arp_scan_result:gmatch("[^\r\n]+") do
-        -- Skip header lines
         if line:match("^%d+%.%d+%.%d+%.%d+") then
             local ip, mac, vendor = line:match("(%d+%.%d+%.%d+%.%d+)%s+([0-9a-fA-F:]+)%s+(.*)")
             if ip and mac and mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
                 local upper_mac = string.upper(mac)
-
-                -- Use vendor from arp-scan output or fallback to database lookup
-                local manufacturer = vendor
-                if not manufacturer or manufacturer:match("Unknown") then
-                    manufacturer = get_manufacturer(upper_mac)
-                end
+                local hostname = hostnames[upper_mac] or "Unknown"
+                local manufacturer = get_manufacturer(upper_mac)
 
                 local dev_info = {
                     ip = ip,
                     mac = upper_mac,
-                    interface = "unknown", -- Will be updated later if found in other sources
-                    hostname = hostnames[upper_mac] or "Unknown",
-                    manufacturer = manufacturer,
-                    connection_type = "unknown", -- Will be updated later
+                    interface = "unknown",
+                    hostname = hostname,
+                    manufacturer = manufacturer or "Unknown",
+                    connection_type = "unknown",
                     signal = nil,
                     rx_bytes = 0,
                     tx_bytes = 0,
                     last_seen = os.time()
                 }
 
-                -- Fallback name when hostname is unknown
-                if dev_info.hostname == "Unknown" then
-                    dev_info.display_name = manufacturer .. " Device"
+                if hostname == "Unknown" then
+                    dev_info.display_name = manufacturer or "Unknown"
                 else
-                    dev_info.display_name = dev_info.hostname
+                    dev_info.display_name = hostname
                 end
 
                 devices[upper_mac] = dev_info
@@ -267,35 +257,32 @@ function get_connected_devices()
     for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
         if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
             local upper_mac = string.upper(mac)
-
+            local hostname = hostnames[upper_mac] or "Unknown"
+            local manufacturer = get_manufacturer(upper_mac)
             if devices[upper_mac] then
-                -- Update existing device with additional info
                 devices[upper_mac].interface = device
                 devices[upper_mac].connection_type = "wired"
+                if hostname == "Unknown" then
+                    devices[upper_mac].display_name = manufacturer or "Unknown"
+                end
             else
-                -- Create new device entry
-                local manufacturer = get_manufacturer(upper_mac)
-
                 local dev_info = {
                     ip = ip,
                     mac = upper_mac,
                     interface = device,
-                    hostname = hostnames[upper_mac] or "Unknown",
-                    manufacturer = manufacturer,
+                    hostname = hostname,
+                    manufacturer = manufacturer or "Unknown",
                     connection_type = "wired",
                     signal = nil,
                     rx_bytes = 0,
                     tx_bytes = 0,
                     last_seen = os.time()
                 }
-
-                -- Fallback name when hostname is unknown
-                if dev_info.hostname == "Unknown" then
-                    dev_info.display_name = manufacturer .. " Device"
+                if hostname == "Unknown" then
+                    dev_info.display_name = manufacturer or "Unknown"
                 else
-                    dev_info.display_name = dev_info.hostname
+                    dev_info.display_name = hostname
                 end
-
                 devices[upper_mac] = dev_info
             end
         end
@@ -315,12 +302,9 @@ function get_connected_devices()
             if mac ~= "" then
                 local upper_mac = string.upper(mac)
                 if devices[upper_mac] then
-                    -- Update existing device with wifi info
                     devices[upper_mac].connection_type = "wifi"
                     devices[upper_mac].essid = current_essid
                     devices[upper_mac].interface = current_iface
-
-                    -- Get signal strength
                     local signal = line:match("Signal: ([%-0-9]+)") or "0"
                     devices[upper_mac].signal = tonumber(signal) or 0
                 end
@@ -328,7 +312,6 @@ function get_connected_devices()
         end
     end
 
-    -- Convert to array
     for _, device in pairs(devices) do
         table.insert(result, device)
     end

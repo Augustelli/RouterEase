@@ -5,17 +5,43 @@ services:
     container_name: reverse_proxie
     ports:
       - "8080:8080"
-      - "9080:80"
+      - "80:80"
+      - "443:443"
+      - "5353:53/udp"
+      - "5353:53/tcp"
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml
+      - ./middlewares.yml:/etc/traefik/middlewares.yml
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./logs:/logs"
-
+      - ./logs:/logs
+      - ./acme.json:/acme.json
+# docker network connect openwrt-wan reverse_proxie
     restart: unless-stopped
     networks:
-      - openwrt-lan
-      - backend-network
+      openwrt-wan:
+#        ipv4_address: 172.19.0.10
+      backend-network:
+        ipv4_address: 172.20.0.10
+
+  whoami:
+    image: traefik/whoami
+    command:
+      - --port=2001
+      - --name=routerease
+    ports:
+      - "2001:2001"
+    labels:
+    - "traefik.enable=true"
+    - "traefik.http.routers.whoami.rule=Host(`routerease.local`)"
+    - "traefik.http.routers.whoami.entrypoints=https"
+    - "traefik.http.routers.whoami.tls=true"
+    - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
+
 networks:
-  openwrt-lan:
+  openwrt-wan:
   backend-network:
+    driver: host
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
