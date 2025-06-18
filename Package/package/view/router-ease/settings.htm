@@ -63,27 +63,27 @@
         params.append('client_id', 'admin_cli');
         params.append('grant_type', 'password');
 
-        fetch('http://192.168.0.107/routerease/user/realms/routerease/protocol/openid-connect/token', {
+        fetch('http://192.168.48.229/routerease/user/realms/routerease/protocol/openid-connect/token', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: params
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.access_token) {
-                localStorage.setItem('routerease_token', data.access_token);
-                msg.style.color = 'green';
-                msg.textContent = 'Login successful!';
-                // Optionally redirect or update UI here
-            } else {
+            .then(res => res.json())
+            .then(data => {
+                if (data.access_token) {
+                    localStorage.setItem('routerease_token', data.access_token);
+                    msg.style.color = 'green';
+                    msg.textContent = 'Login successful!';
+                    // Optionally redirect or update UI here
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = 'Login failed: ' + (data.error_description || 'Invalid credentials');
+                }
+            })
+            .catch(() => {
                 msg.style.color = 'red';
-                msg.textContent = 'Login failed: ' + (data.error_description || 'Invalid credentials');
-            }
-        })
-        .catch(() => {
-            msg.style.color = 'red';
-            msg.textContent = 'Error connecting to authentication service.';
-        });
+                msg.textContent = 'Error connecting to authentication service.';
+            });
     });
 </script>
 <%+footer%>

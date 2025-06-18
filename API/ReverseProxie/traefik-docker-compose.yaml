@@ -15,9 +15,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/logs
       - ./acme.json:/acme.json
-
+    # docker network connect openwrt-wan reverse_proxie
     restart: unless-stopped
-
     networks:
       openwrt-wan:
       backend-network:
@@ -31,17 +30,16 @@ services:
     ports:
       - "2001:2001"
     labels:
-    - "traefik.enable=true"
-    - "traefik.http.routers.whoami.rule=Host(`routerease.local`)"
-    - "traefik.http.routers.whoami.entrypoints=https"
-    - "traefik.http.routers.whoami.tls=true"
-    - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`routerease.local`)"
+      - "traefik.http.routers.whoami.entrypoints=https"
+      - "traefik.http.routers.whoami.tls=true"
+      - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
 
 networks:
   openwrt-wan:
   backend-network:
-    driver: bridge
+    driver: host
     ipam:
       config:
         - subnet: 172.20.0.0/16
-
