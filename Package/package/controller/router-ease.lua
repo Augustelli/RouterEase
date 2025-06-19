@@ -1,7 +1,9 @@
 module("luci.controller.router-ease", package.seeall)
 
 local dispatcher = require "luci.dispatcher"
-
+local uci = require "luci.model.uci".cursor()
+local util = require "luci.util"
+local jsonc = require "luci.jsonc"
 
 function index()
      -- Add authentication requirement to fix the visibility issue
@@ -29,6 +31,7 @@ function index()
      entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
      entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
      entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
+     entry({"admin", "router-ease", "configure_doh"}, call("configure_doh"), nil).leaf = true
      entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
      entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
      entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
@@ -409,4 +412,88 @@ function action_speedtest_status()
             message = "Failed to start speed test"
         })
     end
+end
+
+-- Set token
+
+function set_token()
+    local token = util.trim(luci.http.read_body())
+    local response = { success = false }
+
+    if token and #token > 0 then
+        -- Set the Authorization header for https-dns-proxy
+        local auth_header = "Authorization: Bearer " .. token
+        uci:set("https-dns-proxy", "main", "extra_headers", auth_header)
+        uci:commit("https-dns-proxy")
+
+        -- Restart the service to apply the new token
+        local code = luci.sys.call("/etc/init.d/https-dns-proxy restart >/dev/null 2>&1")
+
+        if code == 0 then
+            response.success = true
+            response.message = "Token updated and DoH service restarted."
+        else
+            response.message = "Failed to restart https-dns-proxy service."
+        end
+    else
+        response.message = "No token provided."
+    end
+
+    luci.http.prepare_content("application/json")
+    luci.http.write(jsonc.stringify(response))
+end
+
+function configure_doh()
+    local token = util.trim(luci.http.read_body())
+    local response = { success = false }
+
+    if not (token and #token > 0) then
+        response.message = "No token provided."
+        luci.http.prepare_content("application/json")
+        luci.http.write(jsonc.stringify(response))
+        return
+    end
+
+    -- 1. Set the Authorization header with the new token
+    uci:set("https-dns-proxy", "main", "extra_headers", "Authorization: Bearer " .. token)
+    uci:commit("https-dns-proxy")
+
+    -- 2. Run setup script. It checks if the package is already installed.
+    local script = [[
+        # Only run full setup if https-dns-proxy is not yet installed
+        if ! opkg list-installed | grep -q "https-dns-proxy"; then
+            opkg update >/dev/null 2>&1
+            opkg install https-dns-proxy >/dev/null 2>&1
+            if [ $? -ne 0 ]; then echo "Error: Failed to install https-dns-proxy."; exit 1; fi
+
+            uci set dhcp.@dnsmasq[0].noresolv='1'
+            uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#5053'
+            uci commit dhcp
+            /etc/init.d/dnsmasq restart >/dev/null 2>&1
+
+            # IMPORTANT: Replace with your actual DoH server URL
+            uci set https-dns-proxy.main.resolver_url='https://192.168.0.113/routerease/dns/dns-query'
+            uci set https-dns-proxy.main.listen_port='5053'
+            uci commit https-dns-proxy
+
+            /etc/init.d/https-dns-proxy enable >/dev/null 2>&1
+        fi
+
+        # Always restart the service to apply the new token
+        /etc/init.d/https-dns-proxy restart >/dev/null 2>&1
+        if [ $? -ne 0 ]; then echo "Error: Failed to restart https-dns-proxy."; exit 1; fi
+    ]]
+
+    local code, out, err = sys.exec(script)
+
+    if code == 0 then
+        response.success = true
+        response.message = "DoH successfully configured and started."
+    else
+        response.message = "Failed to configure DoH."
+        response.error_details = util.trim(err or out)
+    end
+
+    luci.http.prepare_content("application/json")
+    luci.http.write(jsonc.stringify(response))
 end
