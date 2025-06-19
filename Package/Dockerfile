@@ -53,6 +53,10 @@ RUN /etc/init.d/rpcd enable
 RUN /etc/init.d/rpcd restart
 RUN  service nlbwmon enable
 RUN  service nlbwmon star
+#RUN uci set network.wan.peerdns='0'\
+#   uci set network.wan.dns='8.8.8.8 8.8.4.4' \
+#   uci commit network \
+#   /etc/init.d/network restart \
 
 COPY package/controller/ /usr/lib/lua/luci/controller/
 COPY package/view/router-ease/ /usr/lib/lua/luci/view/router-ease/

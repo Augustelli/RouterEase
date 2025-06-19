@@ -42,3 +42,6 @@
 172.20.0.1 - - [16/Jun/2025:20:36:39 +0000] "GET /routerease/mac-address/ HTTP/1.1" 404 19 "-" "-" 1 "-" "-" 0ms
 172.20.0.1 - - [16/Jun/2025:20:41:54 +0000] "GET /routerease/mac-address/ HTTP/1.1" 400 24 "-" "-" 1 "mac-address@docker" "http://172.20.0.5:8080" 1ms
 172.20.0.1 - - [16/Jun/2025:20:42:05 +0000] "GET /routerease/mac-address/?mac=f8:b4:6a:14:3d:e5 HTTP/1.1" 200 79 "-" "-" 2 "mac-address@docker" "http://172.20.0.5:8080" 0ms
+172.20.0.1 - - [19/Jun/2025:20:18:07 +0000] "POST /routerease/mac-address/ HTTP/1.1" 200 809 "-" "-" 1 "mac-address@docker" "http://172.20.0.6:8080" 3ms
+172.20.0.1 - - [19/Jun/2025:20:40:36 +0000] "GET /routerease/mac-address/?mac=40:ED:00:9D:F3:D3 HTTP/1.1" 200 91 "-" "-" 1 "mac-address@docker" "http://172.20.0.7:8080" 1ms
+172.20.0.1 - - [19/Jun/2025:20:44:46 +0000] "GET /routerease/mac-address/?mac=40:ed:00:9D:F3:D3 HTTP/1.1" 200 91 "-" "-" 2 "mac-address@docker" "http://172.20.0.7:8080" 6ms

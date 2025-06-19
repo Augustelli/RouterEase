@@ -189,7 +189,7 @@ function get_connected_devices()
     -- Function to get manufacturer from external service
     local function get_manufacturer(mac)
         if not mac then return nil end
-        local url = "http://localhost/routerease/mac-address/?mac=" .. mac
+        local url = "http://192.168.0.113/routerease/mac-address/?mac=" .. mac
         local resp = util.exec("curl -s '" .. url .. "'")
         if resp and #resp > 0 then
             local data = json.parse(resp)
