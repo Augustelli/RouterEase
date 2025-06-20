@@ -1,216 +1,84 @@
 module("luci.controller.router-ease", package.seeall)
 
-local dispatcher = require "luci.dispatcher"
 local uci = require "luci.model.uci".cursor()
 local util = require "luci.util"
 local jsonc = require "luci.jsonc"
+local sys = require "luci.sys"
+local fs = require "nixio.fs"
+local nixio = require "nixio"
 
 function index()
-     -- Add authentication requirement to fix the visibility issue
-     local page = entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60)
-     page.dependent = false
-     page.sysauth = "admin"  -- Fix for authentication issue
+    -- Main page entry
+    local page = entry({"admin", "router-ease"}, firstchild(), "Router-Ease", 60)
+    page.dependent = false
+    page.sysauth = "admin"
 
-     entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
+    -- Visible menu items
+    entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
+    entry({"admin", "router-ease", "network"}, firstchild(), "Network Tools", 10)
+    entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
+    entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
+    entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
+    entry({"admin", "router-ease", "bandwidth"}, view("nlbw/display"), _("Bandwidth Monitor"), 35)
+    entry({"admin", "router-ease", "settings"}, template("router-ease/settings"), "Settings", 40)
 
-     -- Add both features as submenu items under Network Tools
-     entry({"admin", "router-ease", "network", "speedtest"}, template("router-ease/speed-test"), "Speed Test", 10)
-     entry({"admin", "router-ease", "network", "qrcode"}, template("router-ease/qr"), "WiFi QR Code", 20)
-     entry({"admin", "router-ease", "dashboard"}, template("router-ease/dashboard"), "Connected Devices", 5)
+    -- Sub-pages for bandwidth monitor (hidden from main menu)
+    entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), nil)
+    entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), nil)
 
-     -- Keep existing QoS integration
--- Quality of Service (working correctly)
-     entry({"admin", "router-ease", "qos"}, cbi("nft-qos/nft-qos"), _("Quality of Service"), 30)
-
--- Main bandwidth monitoring page|
-     entry({"admin", "router-ease", "bandwidth"}, view("nlbw/display"), _("Bandwidth Monitor"), 35)
-     entry({"admin", "router-ease", "settings"}, template("router-ease/settings"), "Settings", 10)
-     -- Sub-pages if desired (optional)
-     entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), _("Configuration"))
-     entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), _("Backup"))
-     entry({"admin", "network", "speedtest", "action_run_speedtest"}, call("action_run_speedtest"), nil).leaf = true
-     entry({"admin", "network", "speedtest", "action_status"}, call("action_status"), nil).leaf = true
-     entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info"), nil).leaf = true
-     entry({"admin", "router-ease", "configure_doh"}, call("configure_doh"), nil).leaf = true
-     entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices"), nil).leaf = true
-     entry({"admin", "router-ease", "kick_device"}, call("action_kick_device"), nil).leaf = true
-     entry({"admin", "router-ease", "qos_status"}, call("qos_status"))
-
-     -- Add these inside your index() function
-     entry({"admin", "network", "speedtest"}, template("router-ease/speed-test"), _("Speed Test"), 90)
-     entry({"admin", "network", "speedtest", "run"}, call("action_run_speedtest"))
-     entry({"admin", "network", "speedtest", "status"}, call("action_speedtest_status"))
+    -- Action endpoints (API calls, no UI)
+    entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info")).leaf = true
+    entry({"admin", "router-ease", "configure_doh"}, call("configure_doh")).leaf = true
+    entry({"admin", "router-ease", "get_connected_devices"}, call("get_connected_devices")).leaf = true
+    entry({"admin", "router-ease", "qos_status"}, call("qos_status")).leaf = true
+    entry({"admin", "router-ease", "speedtest_run"}, call("action_run_speedtest")).leaf = true
+    entry({"admin", "router-ease", "speedtest_status"}, call("action_speedtest_status")).leaf = true
 end
 
-
-
-local function qos_status()
-    local sys = require "luci.sys"
-    local util = require "luci.util"
-
-    -- Get QoS status
-    local status = util.trim(util.exec("nft list ruleset | grep -q 'qos' && echo on || echo off"))
-    return status
+function qos_status()
+    local status = util.trim(sys.exec("nft list ruleset | grep -q 'qos' && echo on || echo off"))
+    luci.http.prepare_content("text/plain")
+    luci.http.write(status)
 end
 
--- Rest of the functions remain the same...
-
-function action_run_speedtest()
-    local sys = require "luci.sys"
-    local fs = require "nixio.fs"
-
-    -- Clear old results if they exist
-    if fs.access("/tmp/speedtest_results.txt") then
-        fs.unlink("/tmp/speedtest_results.txt")
-    end
-
-    -- Run speedtest-netperf.sh and redirect output to a file
-    sys.call("which speedtest-netperf.sh > /tmp/speedtest_path.txt")
-    sys.call("speedtest-netperf.sh  -H 79.127.209.1 -t 20 > /tmp/speedtest_results.txt 2>&1 &")
-
-    luci.http.prepare_content("application/json")
-    luci.http.write_json({ status = "running" })
-end
-
-function parse_speedtest_results(json_str)
-    local json = require "luci.jsonc"
-    local result = {
-        download = 0,
-        upload = 0,
-        ping = 0,
-        error_msg = nil
-    }
-
-    -- Log raw results for debugging
-    local debug_log = io.open("/tmp/speedtest_parse_debug.log", "w")
-    if debug_log then
-        debug_log:write("Raw results:\n" .. json_str .. "\n\n")
-    end
-
-    -- Try to parse the JSON
-    local success, data = pcall(function() return json.parse(json_str) end)
-
-    if success and data then
-        -- Extract values from the JSON structure
-        result.download = tonumber(data.download) or 0
-        result.upload = tonumber(data.upload) or 0
-        result.ping = tonumber(data.ping) or 0
-
-        if debug_log then
-            debug_log:write("Successfully parsed JSON data\n")
-            debug_log:write(string.format("Download: %f bps\n", result.download))
-            debug_log:write(string.format("Upload: %f bps\n", result.upload))
-            debug_log:write(string.format("Ping: %f ms\n", result.ping))
-        end
-    else
-        result.error_msg = "Failed to parse speedtest results"
-        if debug_log then debug_log:write("Failed to parse JSON: " .. (data or "unknown error") .. "\n") end
-    end
-
-    if debug_log then debug_log:close() end
-
-    return result.download, result.upload, result.ping, result.error_msg
-end
-
-function action_status()
-    local fs = require "nixio.fs"
-    local sys = require "luci.sys"
-
-    luci.http.prepare_content("application/json")
-
-    -- Check if speedtest is still running
-    local running = (sys.exec("pgrep -f speedtest-cli") ~= "")
-
-    if running then
-        luci.http.write_json({ status = "running" })
-        return
-    end
-
-    -- Check for results file
-    if fs.access("/tmp/speedtest_result") then
-        local results = fs.readfile("/tmp/speedtest_result")
-
-        -- Parse the results
-        local download, upload, ping, error_msg = parse_speedtest_results(results)
-
-        local response = {
-            status = "complete",
-            data = {
-                download = { bps_mean = download },
-                upload = { bps_mean = upload },
-                ping = { median = ping }
-            }
-        }
-
-        if error_msg then
-            response.warning = error_msg
-        end
-
-        luci.http.write_json(response)
-    else
-        luci.http.write_json({
-            status = "error",
-            message = "No test results found"
-        })
-    end
-end
-
---- QR Code Functionality
 function get_wifi_info()
-    local uci = require "luci.model.uci".cursor()
-    local json = require "luci.jsonc"
     local result = {}
-
-    -- Get primary WiFi network info
     uci:foreach("wireless", "wifi-iface", function(s)
         if s.mode == "ap" and s.network == "lan" then
             result.ssid = s.ssid or ""
             result.key = s.key or ""
             result.encryption = s.encryption or "none"
-            return false  -- Stop after finding the first AP
+            return false -- Stop after finding the first AP
         end
     end)
-
     luci.http.prepare_content("application/json")
-    luci.http.write(json.stringify(result))
+    luci.http.write(jsonc.stringify(result))
 end
 
-
---- Connected devices
-
 function get_connected_devices()
-    local sys = require "luci.sys"
-    local util = require "luci.util"
-    local uci = require "luci.model.uci".cursor()
-    local json = require "luci.jsonc"
-    local nixio = require "nixio"
-
     local result = {}
     local devices = {}
     local hostnames = {}
 
-    -- Function to get manufacturer from external service
     local function get_manufacturer(mac)
         if not mac then return nil end
         local url = "http://192.168.0.113/routerease/mac-address/?mac=" .. mac
         local resp = util.exec("curl -s '" .. url .. "'")
         if resp and #resp > 0 then
-            local data = json.parse(resp)
-            if data and data.manufacturer then
+            local ok, data = pcall(jsonc.parse, resp)
+            if ok and data and data.manufacturer then
                 return data.manufacturer
             end
         end
         return nil
     end
 
-    -- Get DHCP leases for hostname mapping
     uci:foreach("dhcp", "host", function(s)
         if s.mac and s.name then
             hostnames[string.upper(s.mac)] = s.name
         end
     end)
 
-    -- Get DHCP leases for active clients
     local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
     for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
         if name ~= "*" then
@@ -218,11 +86,7 @@ function get_connected_devices()
         end
     end
 
-    -- Run arp-scan with fallback options to handle missing IP address
-    local arp_scan_cmd = "arp-scan 192.168.16.0/24 -xg 2>/dev/null"
-    local arp_scan_result = util.exec(arp_scan_cmd) or ""
-
-    -- Process arp-scan results
+    local arp_scan_result = util.exec("arp-scan 192.168.16.0/24 -xg 2>/dev/null") or ""
     for line in arp_scan_result:gmatch("[^\r\n]+") do
         if line:match("^%d+%.%d+%.%d+%.%d+") then
             local ip, mac, vendor = line:match("(%d+%.%d+%.%d+%.%d+)%s+([0-9a-fA-F:]+)%s+(.*)")
@@ -230,87 +94,52 @@ function get_connected_devices()
                 local upper_mac = string.upper(mac)
                 local hostname = hostnames[upper_mac] or "Unknown"
                 local manufacturer = get_manufacturer(upper_mac)
-
                 local dev_info = {
-                    ip = ip,
-                    mac = upper_mac,
-                    interface = "unknown",
-                    hostname = hostname,
-                    manufacturer = manufacturer or "Unknown",
-                    connection_type = "unknown",
-                    signal = nil,
-                    rx_bytes = 0,
-                    tx_bytes = 0,
-                    last_seen = os.time()
+                    ip = ip, mac = upper_mac, interface = "unknown", hostname = hostname,
+                    manufacturer = manufacturer or "Unknown", connection_type = "unknown",
+                    signal = nil, rx_bytes = 0, tx_bytes = 0, last_seen = os.time()
                 }
-
-                if hostname == "Unknown" then
-                    dev_info.display_name = manufacturer or "Unknown"
-                else
-                    dev_info.display_name = hostname
-                end
-
+                dev_info.display_name = (hostname == "Unknown") and (manufacturer or "Unknown") or hostname
                 devices[upper_mac] = dev_info
             end
         end
     end
 
-    -- Get ARP table for additional connected devices and update existing ones
-    local arp_table = nixio.fs.readfile("/proc/net/arp") or ""
+    local arp_table = fs.readfile("/proc/net/arp") or ""
     for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
         if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
             local upper_mac = string.upper(mac)
-            local hostname = hostnames[upper_mac] or "Unknown"
-            local manufacturer = get_manufacturer(upper_mac)
             if devices[upper_mac] then
                 devices[upper_mac].interface = device
                 devices[upper_mac].connection_type = "wired"
-                if hostname == "Unknown" then
-                    devices[upper_mac].display_name = manufacturer or "Unknown"
-                end
             else
+                local hostname = hostnames[upper_mac] or "Unknown"
+                local manufacturer = get_manufacturer(upper_mac)
                 local dev_info = {
-                    ip = ip,
-                    mac = upper_mac,
-                    interface = device,
-                    hostname = hostname,
-                    manufacturer = manufacturer or "Unknown",
-                    connection_type = "wired",
-                    signal = nil,
-                    rx_bytes = 0,
-                    tx_bytes = 0,
-                    last_seen = os.time()
+                    ip = ip, mac = upper_mac, interface = device, hostname = hostname,
+                    manufacturer = manufacturer or "Unknown", connection_type = "wired",
+                    signal = nil, rx_bytes = 0, tx_bytes = 0, last_seen = os.time()
                 }
-                if hostname == "Unknown" then
-                    dev_info.display_name = manufacturer or "Unknown"
-                else
-                    dev_info.display_name = hostname
-                end
+                dev_info.display_name = (hostname == "Unknown") and (manufacturer or "Unknown") or hostname
                 devices[upper_mac] = dev_info
             end
         end
     end
 
-    -- Get wireless clients
     local iw_output = util.exec("iwinfo | grep -A 5 'ESSID\\|Associated'") or ""
-    local current_iface = nil
-    local current_essid = nil
-
+    local current_iface, current_essid
     for line in iw_output:gmatch("[^\r\n]+") do
         if line:match("ESSID:") then
-            current_iface = line:match("^(.-) ") or ""
-            current_essid = line:match("ESSID: \"(.-)\"") or "Unknown"
+            current_iface = line:match("^(.-) ")
+            current_essid = line:match('ESSID: "(.-)"')
         elseif line:match("Associated") then
-            local mac = line:match("([0-9A-F:]+)") or ""
-            if mac ~= "" then
-                local upper_mac = string.upper(mac)
-                if devices[upper_mac] then
-                    devices[upper_mac].connection_type = "wifi"
-                    devices[upper_mac].essid = current_essid
-                    devices[upper_mac].interface = current_iface
-                    local signal = line:match("Signal: ([%-0-9]+)") or "0"
-                    devices[upper_mac].signal = tonumber(signal) or 0
-                end
+            local mac = line:match("([0-9A-F:]+)")
+            if mac and devices[string.upper(mac)] then
+                local dev = devices[string.upper(mac)]
+                dev.connection_type = "wifi"
+                dev.essid = current_essid
+                dev.interface = current_iface
+                dev.signal = tonumber(line:match("Signal: ([%-0-9]+)")) or 0
             end
         end
     end
@@ -320,180 +149,92 @@ function get_connected_devices()
     end
 
     luci.http.prepare_content("application/json")
-    luci.http.write(json.stringify(result))
+    luci.http.write(jsonc.stringify(result))
 end
 
--- Add these functions to your router-ease.lua controller
-
 function action_run_speedtest()
-    local json = require "luci.jsonc"
-    local fs = require "nixio.fs"
-    local util = require "luci.util"
-
-    -- Create a status file to track ongoing test
     fs.writefile("/tmp/speedtest_status", "running")
-
-    -- Launch the speedtest in background to avoid timeout
     local script = [[
 #!/bin/sh
 python3 -c '
-import json
-import subprocess
-import time
-import os
-
+import json, subprocess, os
 try:
-    # Run speedtest-cli with JSON output
     result = subprocess.check_output(["speedtest-cli", "--json"], universal_newlines=True)
     data = json.loads(result)
-
-    # Format the results to match what frontend expects
     output = {
         "status": "complete",
         "data": {
-            "ping": {"median": data["ping"]},
-            "download": {"bps_mean": data["download"]},
-            "upload": {"bps_mean": data["upload"]}
+            "ping": {"median": data.get("ping", 0)},
+            "download": {"bps_mean": data.get("download", 0)},
+            "upload": {"bps_mean": data.get("upload", 0)}
         }
     }
-
-    # Save the results
-    with open("/tmp/speedtest_result", "w") as f:
-        f.write(json.dumps(output))
-
+    with open("/tmp/speedtest_result", "w") as f: f.write(json.dumps(output))
 except Exception as e:
-    # Handle errors
-    error = {
-        "status": "error",
-        "message": str(e)
-    }
-    with open("/tmp/speedtest_result", "w") as f:
-        f.write(json.dumps(error))
-
-# Mark test as complete
-with open("/tmp/speedtest_status", "w") as f:
-    f.write("complete")
+    error = {"status": "error", "message": str(e)}
+    with open("/tmp/speedtest_result", "w") as f: f.write(json.dumps(error))
+finally:
+    with open("/tmp/speedtest_status", "w") as f: f.write("complete")
 '
     ]]
-
-    -- Execute the script in background
-    local cmd = string.format("(%s) >/dev/null 2>&1 &", script)
-    util.exec(cmd)
-
-    -- Return immediate response to trigger polling
+    sys.exec(string.format("(%s) >/dev/null 2>&1 &", script))
     luci.http.prepare_content("application/json")
     luci.http.write_json({status = "started"})
 end
 
 function action_speedtest_status()
-    local json = require "luci.jsonc"
-    local fs = require "nixio.fs"
-
-    -- Check if test is still running
-    local status = fs.readfile("/tmp/speedtest_status") or "error"
-    status = status:gsub("\n", "")
+    local status = util.trim(fs.readfile("/tmp/speedtest_status") or "error")
+    local response = {}
 
     if status == "complete" then
-        -- Return the completed test results
-        local result = fs.readfile("/tmp/speedtest_result") or "{}"
-        local data = json.parse(result)
-
-        luci.http.prepare_content("application/json")
-        luci.http.write_json(data)
+        local result_str = fs.readfile("/tmp/speedtest_result") or "{}"
+        local ok, data = pcall(jsonc.parse, result_str)
+        response = ok and data or {status = "error", message = "Failed to parse result file."}
     elseif status == "running" then
-        -- Test still in progress
-        luci.http.prepare_content("application/json")
-        luci.http.write_json({status = "running"})
+        response = {status = "running"}
     else
-        -- Something went wrong
-        luci.http.prepare_content("application/json")
-        luci.http.write_json({
-            status = "error",
-            message = "Failed to start speed test"
-        })
-    end
-end
-
--- Set token
-
-function set_token()
-    local token = util.trim(luci.http.read_body())
-    local response = { success = false }
-
-    if token and #token > 0 then
-        -- Set the Authorization header for https-dns-proxy
-        local auth_header = "Authorization: Bearer " .. token
-        uci:set("https-dns-proxy", "main", "extra_headers", auth_header)
-        uci:commit("https-dns-proxy")
-
-        -- Restart the service to apply the new token
-        local code = luci.sys.call("/etc/init.d/https-dns-proxy restart >/dev/null 2>&1")
-
-        if code == 0 then
-            response.success = true
-            response.message = "Token updated and DoH service restarted."
-        else
-            response.message = "Failed to restart https-dns-proxy service."
-        end
-    else
-        response.message = "No token provided."
+        response = {status = "error", message = "Speed test status is unknown or failed to start."}
     end
 
     luci.http.prepare_content("application/json")
-    luci.http.write(jsonc.stringify(response))
+    luci.http.write_json(response)
 end
 
 function configure_doh()
-    local token = util.trim(luci.http.read_body())
-    local response = { success = false }
+        -- Read the raw post data directly from stdin to avoid issues with LuCI's body parsing
+        local body = nixio.stdin:read(-1)
+        local response = { success = false }
 
-    if not (token and #token > 0) then
-        response.message = "No token provided."
+        -- Check if the body is nil or empty
+        if not body or #util.trim(body) == 0 then
+            luci.http.status(400, "Bad Request")
+            response.message = "Request body is empty. Please provide a token."
+            response.troubleshooting = "Ensure the request has a raw body containing the token."
+            response.content_type_received = nixio.getenv("CONTENT_TYPE") or "not set"
+            luci.http.prepare_content("application/json")
+            luci.http.write(jsonc.stringify(response))
+            return
+        end
+
+        local token = util.trim(body)
+
+        -- Attempt to set the UCI value
+        local ok, err = pcall(function()
+            uci:set("https-dns-proxy", "main", "extra_headers", "Authorization: Bearer " .. token)
+            uci:commit("https-dns-proxy")
+        end)
+
+        -- Prepare response based on whether the UCI operation succeeded
+        if ok then
+            response.success = true
+            response.message = "Token received and stored successfully."
+            response.stored_header_value = "Authorization: Bearer " .. token
+        else
+            luci.http.status(500, "Internal Server Error")
+            response.message = "Failed to store the token in UCI configuration."
+            response.error_details = tostring(err)
+        end
+
         luci.http.prepare_content("application/json")
         luci.http.write(jsonc.stringify(response))
-        return
-    end
-
-    -- 1. Set the Authorization header with the new token
-    uci:set("https-dns-proxy", "main", "extra_headers", "Authorization: Bearer " .. token)
-    uci:commit("https-dns-proxy")
-
-    -- 2. Run setup script. It checks if the package is already installed.
-    local script = [[
-        # Only run full setup if https-dns-proxy is not yet installed
-        if ! opkg list-installed | grep -q "https-dns-proxy"; then
-            opkg update >/dev/null 2>&1
-            opkg install https-dns-proxy >/dev/null 2>&1
-            if [ $? -ne 0 ]; then echo "Error: Failed to install https-dns-proxy."; exit 1; fi
-
-            uci set dhcp.@dnsmasq[0].noresolv='1'
-            uci add_list dhcp.@dnsmasq[0].server='127.0.0.1#5053'
-            uci commit dhcp
-            /etc/init.d/dnsmasq restart >/dev/null 2>&1
-
-            # IMPORTANT: Replace with your actual DoH server URL
-            uci set https-dns-proxy.main.resolver_url='https://192.168.0.113/routerease/dns/dns-query'
-            uci set https-dns-proxy.main.listen_port='5053'
-            uci commit https-dns-proxy
-
-            /etc/init.d/https-dns-proxy enable >/dev/null 2>&1
-        fi
-
-        # Always restart the service to apply the new token
-        /etc/init.d/https-dns-proxy restart >/dev/null 2>&1
-        if [ $? -ne 0 ]; then echo "Error: Failed to restart https-dns-proxy."; exit 1; fi
-    ]]
-
-    local code, out, err = sys.exec(script)
-
-    if code == 0 then
-        response.success = true
-        response.message = "DoH successfully configured and started."
-    else
-        response.message = "Failed to configure DoH."
-        response.error_details = util.trim(err or out)
-    end
-
-    luci.http.prepare_content("application/json")
-    luci.http.write(jsonc.stringify(response))
 end

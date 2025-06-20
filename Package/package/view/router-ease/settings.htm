@@ -74,13 +74,10 @@
             body: params
         })
             .then(res => {
-                // Parse the JSON body first, then check the status.
-                // This lets us access the error message from Keycloak on failure.
                 return res.json().then(data => ({ ok: res.ok, data }));
             })
             .then(({ ok, data }) => {
                 if (!ok) {
-                    // If auth failed, throw the specific error from Keycloak.
                     throw new Error(data.error_description || 'Authentication failed.');
                 }
 
@@ -88,7 +85,6 @@
                     localStorage.setItem('routerease_token', data.access_token);
                     msg.textContent = 'Login successful! Setting up authenticated DNS...';
 
-                    // Send token to the router to run setup.
                     return fetch('/cgi-bin/luci/admin/router-ease/configure_doh', {
                         method: 'POST',
                         headers: {'Content-Type': 'text/plain'},
