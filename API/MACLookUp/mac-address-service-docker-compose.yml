@@ -4,11 +4,13 @@ services:
     container_name: mac-lookup
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mac-address.rule=PathPrefix(`/routerease/mac-address/`)"
-      - "traefik.http.services.mac-address.loadbalancer.server.port=8080"
-      #      - "traefik.http.routers.mac-address.tls=true"
-      #      - "traefik.http.routers.mac-address.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.mac-address.middlewares=cors-all@file"
+      - "traefik.http.routers.mac-lookup.rule=PathPrefix(`/routerease/mac-address/`)"
+      - "traefik.http.routers.mac-lookup.entrypoints=https"
+      - "traefik.http.routers.mac-lookup.tls=true"
+      - "traefik.http.routers.mac-lookup.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mac-lookup.loadbalancer.server.port=8080"
+      - "traefik.http.routers.mac-lookup.middlewares=strip-mac-prefix@docker,cors-all@file"
+      - "traefik.http.middlewares.strip-mac-prefix.stripPrefix.prefixes=/routerease/mac-address"
     networks:
       - backend-network
     restart: unless-stopped
