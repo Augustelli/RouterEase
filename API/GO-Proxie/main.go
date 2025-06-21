@@ -28,7 +28,7 @@ func main() {
 	http.HandleFunc("/domains/update", controllers.UpdateDomainHandler(db))
 	http.HandleFunc("/domains/delete", controllers.DeleteDomainHandler(db))
 
-	http.HandleFunc("/dns-query", services.DoHandler)
+	http.HandleFunc("/dns-query", services.DNSResolveHandler)
 
 	log.Println("Starting proxy on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

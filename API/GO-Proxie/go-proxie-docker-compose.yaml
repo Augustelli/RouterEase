@@ -3,16 +3,14 @@ services:
     image: ghcr.io/router-ease/go-proxie:latest
     build: .
     container_name: go-proxie
-    #    ports:
-    #      - "8080:8080"
     restart: unless-stopped
     networks:
       - backend-network
+    ports:
+      - "8089:8080"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.go-proxie.rule=PathPrefix(`/routerease/dns/`)"
-      - "traefik.http.routers.go-proxie.middlewares=go-proxie-stripprefix"
-      - "traefik.http.middlewares.go-proxie-stripprefix.stripprefix.prefixes=/routerease/dns"
       - "traefik.http.services.go-proxie.loadbalancer.server.port=8080"
       - "traefik.http.routers.go-proxie.tls=true"
       - "traefik.http.routers.go-proxie.tls.certresolver=letsencrypt"
@@ -29,8 +27,6 @@ services:
       - ./dns-volumen:/var/lib/postgresql/data
     networks:
       - backend-network
-#    ports:
-#      - "5433:5432"
 
 
 volumes:
