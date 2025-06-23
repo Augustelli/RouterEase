@@ -201,40 +201,57 @@ function action_speedtest_status()
 end
 
 function configure_doh()
-        -- Read the raw post data directly from stdin to avoid issues with LuCI's body parsing
-        local body = nixio.stdin:read(-1)
-        local response = { success = false }
+    -- Read the raw post data directly from stdin to avoid issues with LuCI's body parsing
+    local body = nixio.stdin:read(-1)
+    local response = { success = false }
 
-        -- Check if the body is nil or empty
-        if not body or #util.trim(body) == 0 then
-            luci.http.status(400, "Bad Request")
-            response.message = "Request body is empty. Please provide a token."
-            response.troubleshooting = "Ensure the request has a raw body containing the token."
-            response.content_type_received = nixio.getenv("CONTENT_TYPE") or "not set"
-            luci.http.prepare_content("application/json")
-            luci.http.write(jsonc.stringify(response))
-            return
-        end
-
-        local token = util.trim(body)
-
-        -- Attempt to set the UCI value
-        local ok, err = pcall(function()
-            uci:set("https-dns-proxy", "main", "extra_headers", "Authorization: Bearer " .. token)
-            uci:commit("https-dns-proxy")
-        end)
-
-        -- Prepare response based on whether the UCI operation succeeded
-        if ok then
-            response.success = true
-            response.message = "Token received and stored successfully."
-            response.stored_header_value = "Authorization: Bearer " .. token
-        else
-            luci.http.status(500, "Internal Server Error")
-            response.message = "Failed to store the token in UCI configuration."
-            response.error_details = tostring(err)
-        end
-
+    -- Check if the body is nil or empty
+    if not body or #util.trim(body) == 0 then
+        luci.http.status(400, "Bad Request")
+        response.message = "Request body is empty. Please provide a token."
+        response.troubleshooting = "Ensure the request has a raw body containing the token."
+        response.content_type_received = nixio.getenv("CONTENT_TYPE") or "not set"
         luci.http.prepare_content("application/json")
         luci.http.write(jsonc.stringify(response))
+        return
+    end
+
+    local token = util.trim(body)
+    -- !! IMPORTANT !! Replace this with the URL of your custom DoH server
+    local custom_doh_url = "https://192.168.0.113/routerease/dns-query"
+
+    -- Attempt to configure DoH and restart services
+    local ok, err = pcall(function()
+        -- 1. Configure the https-dns-proxy service
+        uci:set("https-dns-proxy", "main", "resolver_url", custom_doh_url)
+        uci:set("https-dns-proxy", "main", "extra_headers", "Authorization: Bearer " .. token)
+        uci:set("https-dns-proxy", "main", "bootstrap_dns", "1.1.1.1,8.8.8.8")
+        uci:set("https-dns-proxy", "main", "listen_addr", "127.0.0.1")
+        uci:set("https-dns-proxy", "main", "listen_port", "53")
+        uci:commit("https-dns-proxy")
+
+        -- 2. Configure dnsmasq to use the local DoH proxy
+        uci:set("dhcp", "@dnsmasq[0]", "server", "127.0.0.1#53")
+        uci:set("dhcp", "@dnsmasq[0]", "noresolv", "1")
+        uci:commit("dhcp")
+
+        -- 3. Restart services to apply the new configuration
+        sys.exec("/etc/init.d/https-dns-proxy restart >/dev/null 2>&1")
+        sys.exec("/etc/init.d/dnsmasq restart >/dev/null 2>&1")
+    end)
+
+    -- Prepare response based on whether the operations succeeded
+    if ok then
+        response.success = true
+        response.message = "DoH successfully configured and services restarted."
+        response.doh_server = custom_doh_url
+        response.stored_header_value = "Authorization: Bearer " .. token
+    else
+        luci.http.status(500, "Internal Server Error")
+        response.message = "Failed to configure DoH."
+        response.error_details = tostring(err)
+    end
+
+    luci.http.prepare_content("application/json")
+    luci.http.write(jsonc.stringify(response))
 end
