@@ -62,7 +62,7 @@ function get_connected_devices()
 
     local function get_manufacturer(mac)
         if not mac then return nil end
-        local url = "https://192.168.48.185/routerease/mac-address/?mac=" .. mac
+        local url = "https://augustomancuso.com/routerease/mac-address/?mac=" .. mac
         local resp = util.exec("curl -s '" .. url .. "'")
         if resp and #resp > 0 then
             local ok, data = pcall(jsonc.parse, resp)
@@ -200,6 +200,8 @@ function action_speedtest_status()
     luci.http.write_json(response)
 end
 
+
+
 -- function configure_doh()
 --     local body = nixio.stdin:read(-1)
 --     local response = { success = false }
@@ -212,11 +214,30 @@ end
 --         return
 --     end
 --
---     -- Write dnsmasq config to /tmp/dnsmasq.conf
---     local conf = "listen-address=127.0.0.1\nport=53\n"
---     local conf_path = "/tmp/dnsmasq.conf"
---     local ok = nixio.fs.writefile(conf_path, conf)
+--     local token = util.trim(body)
+--     local doh_url = "https://augustomancuso.com/routerease/dns/dns-query"
+--     local proxy_listen_addr = "127.0.0.1"
+--     local proxy_listen_port = "5055"
+--     local conf_path = "/tmp/dnsmasq.doh.conf"
 --
+--     -- Kill previous instances to avoid conflicts
+--     util.exec("pkill -f 'https-dns-proxy.*" .. proxy_listen_port .. "'")
+--     util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
+--
+--     -- Start https-dns-proxy with the authentication token
+--     local https_dns_cmd = string.format(
+--         "https-dns-proxy -a %s -p %s -r '%s' -H 'Authorization: Bearer %s' --no-daemon &",
+--         proxy_listen_addr, proxy_listen_port, doh_url, token
+--     )
+--     util.exec(https_dns_cmd)
+--
+--     -- Write dnsmasq config to use https-dns-proxy as upstream
+--     local conf = string.format(
+--         "listen-address=127.0.0.1\nport=53\nno-resolv\nserver=%s#%s\n",
+--         proxy_listen_addr, proxy_listen_port
+--     )
+--
+--     local ok = nixio.fs.writefile(conf_path, conf)
 --     if not ok then
 --         response.message = "Failed to write dnsmasq config."
 --         luci.http.prepare_content("application/json")
@@ -224,58 +245,15 @@ end
 --         return
 --     end
 --
---     util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
+--     -- Start dnsmasq with the new configuration
 --     local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
 --     util.exec(start_cmd)
 --
 --     response.success = true
---     response.message = "dnsmasq started on 127.0.0.1:53"
+--     response.message = "dnsmasq and https-dns-proxy started. DNS is now served over HTTPS."
 --
 --     luci.http.prepare_content("application/json")
 --     luci.http.write(jsonc.stringify(response))
 -- end
 
 
-function configure_doh()
-    local body = nixio.stdin:read(-1)
-    local response = { success = false }
-
-    if not body or #util.trim(body) == 0 then
-        luci.http.status(400, "Bad Request")
-        response.message = "Request body is empty. Please provide a token."
-        luci.http.prepare_content("application/json")
-        luci.http.write(jsonc.stringify(response))
-        return
-    end
-
-    -- 1. Start https-dns-proxy with custom DoH server
-    local doh_url = "https://192.168.48.185/routerease/dns/dns-query"
-    util.exec("pkill -f 'https-dns-proxy'")
-    local https_dns_cmd = string.format(
-        "https-dns-proxy -a 127.0.0.1 -p 5053 -r '%s' --no-daemon &",
-        doh_url
-    )
-    util.exec(https_dns_cmd)
-
-    -- 2. Write dnsmasq config to use https-dns-proxy as upstream
-    local conf = "listen-address=127.0.0.1\nport=53\nno-resolv\nserver=127.0.0.1#5053\n"
-    local conf_path = "/tmp/dnsmasq.conf"
-    local ok = nixio.fs.writefile(conf_path, conf)
-    if not ok then
-        response.message = "Failed to write dnsmasq config."
-        luci.http.prepare_content("application/json")
-        luci.http.write(jsonc.stringify(response))
-        return
-    end
-
-    -- 3. Restart dnsmasq with new config
-    util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
-    local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
-    util.exec(start_cmd)
-
-    response.success = true
-    response.message = "dnsmasq and https-dns-proxy started. DNS queries use your custom DoH server."
-
-    luci.http.prepare_content("application/json")
-    luci.http.write(jsonc.stringify(response))
-end
