@@ -60,6 +60,7 @@ _gen_config() {
 	set +a
 }
 
+
 _init_network() {
 	echo "* setting up docker network"
 	local LAN_ARGS
@@ -224,7 +225,13 @@ _prepare_network() {
 	echo "* getting address via DHCP"
 	sudo dhcpcd -q $LAN_IFACE
 }
-
+# Add this function to your run.sh
+_dnsmasq() {
+  echo "* Add conf dnsmasq"
+  docker exec -i $CONTAINER sh -c '
+    /usr/sbin/dnsmasq -C /var/etc/dnsmasq.conf.cfg01411c
+  '
+}
 main() {
 	cd "${SCRIPT_DIR}"
 	_create_or_start_container
@@ -239,6 +246,8 @@ main() {
 	_prepare_network
 
 	_reload_fw
+	_dnsmasq
+
 	./add_test_container.sh
 	echo "* ready"
 }

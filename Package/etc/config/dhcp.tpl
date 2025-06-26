@@ -1,4 +1,5 @@
 config dnsmasq
+        option nojail '1'
         option domainneeded '1'
         option localise_queries '1'
         option local "/${LAN_DOMAIN}/"
