@@ -38,7 +38,6 @@ RUN opkg remove --force-depends \
       luci-compat \
       luci-app-opkg  \
       luci-app-nlbwmon \
-      luci-app-adblock-fast \
       python3-speedtest-cli \
       https-dns-proxy \
       luci-app-https-dns-proxy \
@@ -54,6 +53,7 @@ RUN /etc/init.d/rpcd restart
 RUN  service nlbwmon enable
 RUN  service nlbwmon star
 
+
 COPY package/controller/ /usr/lib/lua/luci/controller/
 COPY package/view/router-ease/ /usr/lib/lua/luci/view/router-ease/
 
@@ -62,7 +62,6 @@ RUN opkg list-upgradable | awk '{print $1}' | xargs opkg upgrade || true
 
 RUN echo "iptables -A POSTROUTING -t mangle -p udp --dport 68 -j CHECKSUM --checksum-fill" >> /etc/firewall.user
 RUN sed -i '/^exit 0/i cat \/tmp\/resolv.conf > \/etc\/resolv.conf' /etc/rc.local
-
 RUN mkdir -p /usr/share/arp-scan /etc/arp-scan && \
     wget -O /usr/share/arp-scan/ieee-oui.txt https://raw.githubusercontent.com/royhills/arp-scan/master/ieee-oui.txt || \
     curl -o /usr/share/arp-scan/ieee-oui.txt https://raw.githubusercontent.com/royhills/arp-scan/master/ieee-oui.txt && \

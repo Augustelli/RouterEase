@@ -16,13 +16,15 @@
         border: 1px solid #ccc;
         border-radius: 8px;
         background: #fafbfc;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     }
+
     #login-form label {
         display: block;
         margin-bottom: 6px;
         font-weight: bold;
     }
+
     #login-form input[type="text"],
     #login-form input[type="password"] {
         width: 100%;
@@ -31,6 +33,7 @@
         border: 1px solid #bbb;
         border-radius: 4px;
     }
+
     #login-form input[type="submit"] {
         width: 100%;
         padding: 10px;
@@ -41,9 +44,11 @@
         font-size: 1em;
         cursor: pointer;
     }
+
     #login-form input[type="submit"]:hover {
         background: #005bb5;
     }
+
     #login-message {
         text-align: center;
         margin-top: 16px;
@@ -60,29 +65,62 @@
         const params = new URLSearchParams();
         params.append('username', document.getElementById('username').value);
         params.append('password', document.getElementById('password').value);
-        params.append('client_id', 'admin_cli');
+        params.append('client_id', 'routerease');
         params.append('grant_type', 'password');
 
-        fetch('http://192.168.48.229/routerease/user/realms/routerease/protocol/openid-connect/token', {
+        fetch('http://augustomancuso.com/routerease/user/realms/routerease/protocol/openid-connect/token', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: params
         })
-            .then(res => res.json())
-            .then(data => {
+            .then(res => {
+                return res.json().then(data => ({ ok: res.ok, data }));
+            })
+            .then(({ ok, data }) => {
+                if (!ok) {
+                    throw new Error(data.error_description || 'Authentication failed.');
+                }
+
                 if (data.access_token) {
                     localStorage.setItem('routerease_token', data.access_token);
-                    msg.style.color = 'green';
-                    msg.textContent = 'Login successful!';
-                    // Optionally redirect or update UI here
+                    msg.textContent = 'Login successful! Setting up authenticated DNS...';
+
+                    return fetch('/cgi-bin/luci/admin/router-ease/configure_doh', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'text/plain'},
+                        body: data.access_token
+                    });
                 } else {
-                    msg.style.color = 'red';
-                    msg.textContent = 'Login failed: ' + (data.error_description || 'Invalid credentials');
+                    throw new Error('Authentication successful, but no access token was provided.');
                 }
             })
-            .catch(() => {
+            .then(res => {
+                // This handles the response from the '/configure_doh' endpoint.
+                if (!res.ok) {
+                    // If the config request fails, get the error message from the body.
+                    return res.text().then(text => {
+                        throw new Error(text || `Configuration request failed with status ${res.status}`);
+                    });
+                }
+                // If successful, assume the body is JSON.
+                return res.json();
+            })
+            .then(configData => {
+                if (configData.success) {
+                    msg.style.color = 'green';
+                    msg.textContent = 'Login and DoH configuration successful!';
+                } else {
+                    const errorDetails = configData.error_details ? ` (${configData.error_details})` : '';
+                    throw new Error((configData.message || 'Failed to configure DoH.') + errorDetails);
+                }
+            })
+            .catch((err) => {
                 msg.style.color = 'red';
-                msg.textContent = 'Error connecting to authentication service.';
+                if (err instanceof SyntaxError) {
+                    msg.textContent = 'Error: Received an invalid response from the server.';
+                } else {
+                    msg.textContent = 'Error: ' + err.message;
+                }
             });
     });
 </script>

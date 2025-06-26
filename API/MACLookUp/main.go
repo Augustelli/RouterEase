@@ -175,8 +175,8 @@ func main() {
 	}
 
 	// Server mode
-	http.HandleFunc("/", handleMacLookupFull)
-	//http.HandleFunc("/", handleMacLookup)
+	http.HandleFunc("/resolve", handleMacLookupFull)
+	http.HandleFunc("/", handleMacLookup)
 
 	port := ":8080"
 	log.Printf("Starting MAC lookup server on port %s", port)
