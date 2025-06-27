@@ -316,16 +316,16 @@ end
 function start_https_dns_proxy(token)
     -- Configuration values
     local custom_doh_url = "https://augustomancuso.com/routerease/dns/dns-query?dns="
-    local proxy_port = "5055"
+    local proxy_port = "5053"
     local proxy_address = "127.0.0.1#" .. proxy_port
-
     local ok, err = pcall(function()
         local uci = luci.model.uci.cursor()
 
         -- 1. Clean up all existing https-dns-proxy configurations
-    --         while uci:delete("https-dns-proxy", "@https-dns-proxy[0]") do
-    --             -- This loop removes all anonymous sections until none are left
-    --         end
+            while uci:delete("https-dns-proxy", "@https-dns-proxy[0]") do
+                -- This loop removes all anonymous sections until none are left
+            end
+        sys.exec("/etc/init.d/https-dns-proxy restart >/dev/null 2>&1")
 
         -- 2. Create and configure a single new https-dns-proxy instance for GET requests
         uci:section("https-dns-proxy", "https-dns-proxy", nil, {
@@ -373,7 +373,7 @@ function configure_doh()
     port=53
     no-resolv
     no-poll
-    server=127.0.0.1#5055
+    server=127.0.0.1#5053
     domain-needed
     bogus-priv
     cache-size=1000
@@ -382,6 +382,8 @@ function configure_doh()
 
     local conf_path = "/tmp/dnsmasq.doh.conf"
     local ok = nixio.fs.writefile(conf_path, dnsmasq_conf)
+    util.exec("killall dnsmasq 2>/dev/null")
+    util.exec("sleep 1")
     if not ok then
         response.message = "Failed to write dnsmasq config."
         luci.http.prepare_content("application/json")
