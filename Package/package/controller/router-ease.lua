@@ -313,6 +313,38 @@ end
 --     luci.http.write(jsonc.stringify(response))
 -- end
 
+function start_https_dns_proxy(token)
+    -- Configuration values
+    local custom_doh_url = "https://augustomancuso.com/routerease/dns/dns-query?dns="
+    local proxy_port = "5055"
+    local proxy_address = "127.0.0.1#" .. proxy_port
+
+    local ok, err = pcall(function()
+        local uci = luci.model.uci.cursor()
+
+        -- 1. Clean up all existing https-dns-proxy configurations
+    --         while uci:delete("https-dns-proxy", "@https-dns-proxy[0]") do
+    --             -- This loop removes all anonymous sections until none are left
+    --         end
+
+        -- 2. Create and configure a single new https-dns-proxy instance for GET requests
+        uci:section("https-dns-proxy", "https-dns-proxy", nil, {
+            resolver_url = custom_doh_url,
+            extra_headers = "Authorization: Bearer " .. token,
+            bootstrap_dns = "8.8.8.8", -- Use a public DNS for bootstrapping
+            listen_addr = "127.0.0.1",
+            listen_port = proxy_port,
+        })
+        uci:commit("https-dns-proxy")
+        sys.exec("/etc/init.d/https-dns-proxy restart >/dev/null 2>&1")
+    end)
+
+    -- Verify the service started (with a short delay to allow startup)
+    util.exec("sleep 5")
+    local is_running = (util.exec("ps | grep https-dns-proxy | grep -v grep") ~= "")
+    return is_running
+end
+
 
 function configure_doh()
     local body = nixio.stdin:read(-1)
@@ -327,29 +359,29 @@ function configure_doh()
     end
 
     local token = util.trim(body)
-    local doh_url = "https://augustomancuso.com/routerease/dns/dns-query"
-    local proxy_listen_addr = "127.0.0.1"
-    local proxy_listen_port = "5053"
+    local success = start_https_dns_proxy(token)
+    if not success then
+        response.message = "Failed to start https-dns-proxy"
+        luci.http.prepare_content("application/json")
+        luci.http.write(jsonc.stringify(response))
+        return
+    end
+
+    -- Configure dnsmasq to use ONLY the https-dns-proxy
+    local dnsmasq_conf = [[
+    listen-address=127.0.0.1
+    port=53
+    no-resolv
+    no-poll
+    server=127.0.0.1#5055
+    domain-needed
+    bogus-priv
+    cache-size=1000
+    neg-ttl=60
+    ]]
+
     local conf_path = "/tmp/dnsmasq.doh.conf"
-
-    -- Kill previous instances to avoid conflicts
-    util.exec("pkill -f 'https-dns-proxy.*" .. proxy_listen_port .. "'")
-    util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
-
-    -- Start https-dns-proxy with the authentication token
-    local https_dns_cmd = string.format(
-        "https-dns-proxy -a %s -p %s -r '%s' -H 'Authorization: Bearer %s' --no-daemon &",
-        proxy_listen_addr, proxy_listen_port, doh_url, token
-    )
-    util.exec(https_dns_cmd)
-
-    -- Write dnsmasq config to use https-dns-proxy as upstream
-    local conf = string.format(
-        "listen-address=127.0.0.1\nport=53\nno-resolv\nserver=%s#%s\n",
-        proxy_listen_addr, proxy_listen_port
-    )
-
-    local ok = nixio.fs.writefile(conf_path, conf)
+    local ok = nixio.fs.writefile(conf_path, dnsmasq_conf)
     if not ok then
         response.message = "Failed to write dnsmasq config."
         luci.http.prepare_content("application/json")
@@ -357,7 +389,6 @@ function configure_doh()
         return
     end
 
-    -- Start dnsmasq with the new configuration
     local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
     util.exec(start_cmd)
 
