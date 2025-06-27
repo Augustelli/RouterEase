@@ -25,7 +25,9 @@ function index()
     -- Sub-pages for bandwidth monitor (hidden from main menu)
     entry({"admin", "router-ease", "bandwidth", "config"}, view("nlbw/config"), nil)
     entry({"admin", "router-ease", "bandwidth", "backup"}, view("nlbw/backup"), nil)
-
+-- In the index() function:
+    entry({"admin", "network", "speedtest", "run"}, call("action_run_speedtest")).leaf = true
+    entry({"admin", "network", "speedtest", "status"}, call("action_speedtest_status")).leaf = true
     -- Action endpoints (API calls, no UI)
     entry({"admin", "router-ease", "get_wifi_info"}, call("get_wifi_info")).leaf = true
     entry({"admin", "router-ease", "configure_doh"}, call("configure_doh")).leaf = true
@@ -94,19 +96,16 @@ function get_connected_devices()
             end
         end
 
-        -- Cache nil results too to avoid redundant failures
         mac_manufacturer_cache[upper_mac] = nil
         return nil
     end
 
-    -- Get hostnames from dhcp config
     uci:foreach("dhcp", "host", function(s)
         if s.mac and s.name then
             hostnames[string.upper(s.mac)] = s.name
         end
     end)
 
-    -- Get hostnames from dhcp leases
     local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
     for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
         if name ~= "*" then
@@ -114,7 +113,6 @@ function get_connected_devices()
         end
     end
 
-    -- Get devices from arp-scan
     local arp_scan_result = util.exec("arp-scan 192.168.16.0/24 -xg 2>/dev/null") or ""
     for line in arp_scan_result:gmatch("[^\r\n]+") do
         if line:match("^%d+%.%d+%.%d+%.%d+") then
@@ -185,51 +183,43 @@ function get_connected_devices()
 end
 
 function action_run_speedtest()
-    fs.writefile("/tmp/speedtest_status", "running")
-    local script = [[
-#!/bin/sh
-python3 -c '
-import json, subprocess, os
-try:
-    result = subprocess.check_output(["speedtest-cli", "--json"], universal_newlines=True)
-    data = json.loads(result)
-    output = {
-        "status": "complete",
-        "data": {
-            "ping": {"median": data.get("ping", 0)},
-            "download": {"bps_mean": data.get("download", 0)},
-            "upload": {"bps_mean": data.get("upload", 0)}
-        }
-    }
-    with open("/tmp/speedtest_result", "w") as f: f.write(json.dumps(output))
-except Exception as e:
-    error = {"status": "error", "message": str(e)}
-    with open("/tmp/speedtest_result", "w") as f: f.write(json.dumps(error))
-finally:
-    with open("/tmp/speedtest_status", "w") as f: f.write("complete")
-'
-    ]]
-    sys.exec(string.format("(%s) >/dev/null 2>&1 &", script))
-    luci.http.prepare_content("application/json")
-    luci.http.write_json({status = "started"})
-end
 
-function action_speedtest_status()
-    local status = util.trim(fs.readfile("/tmp/speedtest_status") or "error")
-    local response = {}
 
-    if status == "complete" then
-        local result_str = fs.readfile("/tmp/speedtest_result") or "{}"
-        local ok, data = pcall(jsonc.parse, result_str)
-        response = ok and data or {status = "error", message = "Failed to parse result file."}
-    elseif status == "running" then
-        response = {status = "running"}
-    else
-        response = {status = "error", message = "Speed test status is unknown or failed to start."}
+    -- Run speedtest-cli directly and get the output
+    local raw_output = util.exec("speedtest-cli --json")
+
+    -- Check if we got valid output
+    if not raw_output or #raw_output == 0 then
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({
+            status = "error",
+            message = "Failed to run speedtest. No output returned."
+        })
+        return
     end
 
+    -- Parse the JSON output
+    local ok, data = pcall(jsonc.parse, raw_output)
+    if not ok or not data then
+        luci.http.prepare_content("application/json")
+        luci.http.write_json({
+            status = "error",
+            message = "Failed to parse speedtest results"
+        })
+        return
+    end
+
+    -- Format and return the results
+    local result = {
+        status = "complete",
+        data = {
+            ping = {median = data.ping or 0},
+            download = {bps_mean = data.download or 0},
+            upload = {bps_mean = data.upload or 0}
+        }
+    }
     luci.http.prepare_content("application/json")
-    luci.http.write_json(response)
+    luci.http.write_json(result)
 end
 
 

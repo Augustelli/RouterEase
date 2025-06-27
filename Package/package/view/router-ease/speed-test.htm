@@ -100,7 +100,14 @@
                     if (data.status === 'started') {
                         statusEl.textContent = 'Running test...';
                         setTimeout(pollStatus, 1000);
-                    } else {
+                    } else if (data.status === 'complete') {
+                        statusEl.textContent = 'Test complete';
+                        pingEl.textContent = formatPing(data.data.ping.median);
+                        downloadEl.textContent = formatSpeed(data.data.download.bps_mean);
+                        uploadEl.textContent = formatSpeed(data.data.upload.bps_mean);
+                        startBtn.disabled = false;
+                    }
+                    else {
                         statusEl.textContent = 'Error starting test';
                         startBtn.disabled = false;
                     }
