@@ -60,25 +60,53 @@ function get_connected_devices()
     local devices = {}
     local hostnames = {}
 
+    -- MAC address manufacturer lookup cache to avoid redundant requests
+    local mac_manufacturer_cache = {}
+
     local function get_manufacturer(mac)
         if not mac then return nil end
-        local url = "https://augustomancuso.com/routerease/mac-address/?mac=" .. mac
-        local resp = util.exec("curl -s '" .. url .. "'")
+
+        local upper_mac = string.upper(mac)
+
+        -- Check cache first to avoid redundant requests
+        if mac_manufacturer_cache[upper_mac] then
+            return mac_manufacturer_cache[upper_mac]
+        end
+
+        -- The URL for the manufacturer lookup service
+        local url = "https://augustomancuso.com/routerease/mac-address/?mac=" .. upper_mac
+
+        -- Execute the curl command with proper quoting and error handling
+        local curl_cmd = 'curl -s -m 5 "' .. url .. '"'
+        local resp = util.exec(curl_cmd)
+
+        -- Debug output
+        nixio.syslog("info", "MAC lookup for " .. upper_mac .. ": " .. (resp or "no response"))
+
+        -- Process the response
         if resp and #resp > 0 then
             local ok, data = pcall(jsonc.parse, resp)
             if ok and data and data.manufacturer then
+                mac_manufacturer_cache[upper_mac] = data.manufacturer
                 return data.manufacturer
+            else
+                nixio.syslog("err", "Failed to parse JSON: " .. tostring(resp))
             end
         end
+
+        -- Cache nil results too to avoid redundant failures
+        mac_manufacturer_cache[upper_mac] = nil
         return nil
     end
 
+    -- Get hostnames from dhcp config
     uci:foreach("dhcp", "host", function(s)
         if s.mac and s.name then
             hostnames[string.upper(s.mac)] = s.name
         end
     end)
 
+    -- Get hostnames from dhcp leases
     local dhcp_leases = util.exec("cat /tmp/dhcp.leases") or ""
     for mac, ip, name in dhcp_leases:gmatch("(%S+) (%S+) (%S+)") do
         if name ~= "*" then
@@ -86,6 +114,7 @@ function get_connected_devices()
         end
     end
 
+    -- Get devices from arp-scan
     local arp_scan_result = util.exec("arp-scan 192.168.16.0/24 -xg 2>/dev/null") or ""
     for line in arp_scan_result:gmatch("[^\r\n]+") do
         if line:match("^%d+%.%d+%.%d+%.%d+") then
@@ -105,6 +134,7 @@ function get_connected_devices()
         end
     end
 
+    -- Process ARP table entries
     local arp_table = fs.readfile("/proc/net/arp") or ""
     for ip, mac, device in arp_table:gmatch("(%d+%.%d+%.%d+%.%d+)%s+%S+%s+%S+%s+(%S+)%s+%S+%s+(%S+)") do
         if mac:match("^[0-9a-fA-F:]+$") and mac ~= "00:00:00:00:00:00" then
@@ -126,6 +156,7 @@ function get_connected_devices()
         end
     end
 
+    -- Get wireless client information
     local iw_output = util.exec("iwinfo | grep -A 5 'ESSID\\|Associated'") or ""
     local current_iface, current_essid
     for line in iw_output:gmatch("[^\r\n]+") do
@@ -144,6 +175,7 @@ function get_connected_devices()
         end
     end
 
+    -- Build final result array
     for _, device in pairs(devices) do
         table.insert(result, device)
     end
