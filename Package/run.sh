@@ -249,6 +249,8 @@ main() {
 	_dnsmasq
 
 	./add_test_container.sh
+	./add_web_container.sh
+
 	echo "* ready"
 }
 
