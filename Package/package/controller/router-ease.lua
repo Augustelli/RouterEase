@@ -223,99 +223,9 @@ function action_run_speedtest()
 end
 
 
-
--- function configure_doh()
---     local body = nixio.stdin:read(-1)
---     local response = { success = false }
---
---     if not body or #util.trim(body) == 0 then
---         luci.http.status(400, "Bad Request")
---         response.message = "Request body is empty. Please provide a token."
---         luci.http.prepare_content("application/json")
---         luci.http.write(jsonc.stringify(response))
---         return
---     end
---
---     local token = util.trim(body)
---     local doh_url = "https://augustomancuso.com/routerease/dns/dns-query"
---     local proxy_listen_addr = "127.0.0.1"
---     local proxy_listen_port = "5055"
---     local conf_path = "/tmp/dnsmasq.doh.conf"
---
---     -- Kill previous instances to avoid conflicts
---     util.exec("pkill -f 'https-dns-proxy.*" .. proxy_listen_port .. "'")
---     util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
---
---     -- Start https-dns-proxy with the authentication token
---     local https_dns_cmd = string.format(
---         "https-dns-proxy -a %s -p %s -r '%s' -H 'Authorization: Bearer %s' --no-daemon &",
---         proxy_listen_addr, proxy_listen_port, doh_url, token
---     )
---     util.exec(https_dns_cmd)
---
---     -- Write dnsmasq config to use https-dns-proxy as upstream
---     local conf = string.format(
---         "listen-address=127.0.0.1\nport=53\nno-resolv\nserver=%s#%s\n",
---         proxy_listen_addr, proxy_listen_port
---     )
---
---     local ok = nixio.fs.writefile(conf_path, conf)
---     if not ok then
---         response.message = "Failed to write dnsmasq config."
---         luci.http.prepare_content("application/json")
---         luci.http.write(jsonc.stringify(response))
---         return
---     end
---
---     -- Start dnsmasq with the new configuration
---     local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
---     util.exec(start_cmd)
---
---     response.success = true
---     response.message = "dnsmasq and https-dns-proxy started. DNS is now served over HTTPS."
---
---     luci.http.prepare_content("application/json")
---     luci.http.write(jsonc.stringify(response))
--- end
---
--- function configure_doh()
---     local body = nixio.stdin:read(-1)
---     local response = { success = false }
---
---     if not body or #util.trim(body) == 0 then
---         luci.http.status(400, "Bad Request")
---         response.message = "Request body is empty. Please provide a token."
---         luci.http.prepare_content("application/json")
---         luci.http.write(jsonc.stringify(response))
---         return
---     end
---
---     -- Write dnsmasq config to /tmp/dnsmasq.conf
---     local conf = "listen-address=127.0.0.1\nport=53\n"
---     local conf_path = "/tmp/dnsmasq.conf"
---     local ok = nixio.fs.writefile(conf_path, conf)
---
---     if not ok then
---         response.message = "Failed to write dnsmasq config."
---         luci.http.prepare_content("application/json")
---         luci.http.write(jsonc.stringify(response))
---         return
---     end
---
---     util.exec("pkill -f 'dnsmasq.*" .. conf_path .. "'")
---     local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
---     util.exec(start_cmd)
---
---     response.success = true
---     response.message = "dnsmasq started on 127.0.0.1:53"
---
---     luci.http.prepare_content("application/json")
---     luci.http.write(jsonc.stringify(response))
--- end
-
 function start_https_dns_proxy(token)
     -- Configuration values
-    local custom_doh_url = "https://augustomancuso.com/routerease/dns/dns-query?dns="
+    local custom_doh_url = "https://augustomancuso.com/routerease/dns/dns-query"
     local proxy_port = "5053"
     local proxy_address = "127.0.0.1#" .. proxy_port
     local ok, err = pcall(function()
@@ -346,11 +256,13 @@ function start_https_dns_proxy(token)
 end
 
 
+-- function configure_doh()
 function configure_doh()
     local body = nixio.stdin:read(-1)
+    local token = util.trim(body)
     local response = { success = false }
 
-    if not body or #util.trim(body) == 0 then
+    if not token or #token == 0 then
         luci.http.status(400, "Bad Request")
         response.message = "Request body is empty. Please provide a token."
         luci.http.prepare_content("application/json")
@@ -358,7 +270,11 @@ function configure_doh()
         return
     end
 
-    local token = util.trim(body)
+    -- First stop dnsmasq to prevent crash loops
+    sys.exec("/etc/init.d/dnsmasq stop")
+    sys.exec("sleep 2")
+
+    -- Start https-dns-proxy with token
     local success = start_https_dns_proxy(token)
     if not success then
         response.message = "Failed to start https-dns-proxy"
@@ -367,36 +283,108 @@ function configure_doh()
         return
     end
 
-    -- Configure dnsmasq to use ONLY the https-dns-proxy
-    local dnsmasq_conf = [[
-    listen-address=127.0.0.1
-    port=53
-    no-resolv
-    no-poll
-    server=127.0.0.1#5053
-    domain-needed
-    bogus-priv
-    cache-size=1000
-    neg-ttl=60
-    ]]
+    -- Give https-dns-proxy time to initialize
+    sys.exec("sleep 3")
 
-    local conf_path = "/tmp/dnsmasq.doh.conf"
-    local ok = nixio.fs.writefile(conf_path, dnsmasq_conf)
-    util.exec("killall dnsmasq 2>/dev/null")
-    util.exec("sleep 1")
-    if not ok then
-        response.message = "Failed to write dnsmasq config."
-        luci.http.prepare_content("application/json")
-        luci.http.write(jsonc.stringify(response))
-        return
-    end
+    -- Configure dnsmasq via UCI
+    uci:foreach("dhcp", "dnsmasq", function(s)
+        -- Configure DNS settings
+        uci:set("dhcp", s[".name"], "noresolv", "1")
+        uci:delete("dhcp", s[".name"], "server")
 
-    local start_cmd = "dnsmasq --conf-file=" .. conf_path .. " --no-daemon &"
-    util.exec(start_cmd)
+        -- Add server safely with fallback if add_list isn't available
+        if type(uci.add_list) == "function" then
+            uci:add_list("dhcp", s[".name"], "server", "127.0.0.1#5053")
+        else
+            uci:set("dhcp", s[".name"], "server", "127.0.0.1#5053")
+        end
+
+        -- Set reasonable cache size
+        uci:set("dhcp", s[".name"], "cachesize", "1000")
+
+        -- Enable query logging
+        uci:set("dhcp", s[".name"], "logqueries", "1")
+    end)
+
+    -- Commit changes and restart services
+    uci:commit("dhcp")
+    sys.exec("sleep 2")
+    sys.exec("/etc/init.d/dnsmasq restart")
 
     response.success = true
-    response.message = "dnsmasq and https-dns-proxy started. DNS is now served over HTTPS."
+    response.message = "DNS-over-HTTPS configured successfully"
 
     luci.http.prepare_content("application/json")
     luci.http.write(jsonc.stringify(response))
 end
+-- function configure_doh()
+--     local body = nixio.stdin:read(-1)
+--     local response = { success = false }
+--
+--     if not body or #util.trim(body) == 0 then
+--         luci.http.status(400, "Bad Request")
+--         response.message = "Request body is empty. Please provide a token."
+--         luci.http.prepare_content("application/json")
+--         luci.http.write(jsonc.stringify(response))
+--         return
+--     end
+--
+--     local token = util.trim(body)
+--     local success = start_https_dns_proxy(token)
+--     if not success then
+--         response.message = "Failed to start https-dns-proxy"
+--         luci.http.prepare_content("application/json")
+--         luci.http.write(jsonc.stringify(response))
+--         return
+--     end
+--
+--     -- Ensure we have a valid UCI cursor
+--     local uci = require("luci.model.uci").cursor()
+--     if not uci then
+--         response.message = "Failed to get UCI cursor"
+--         luci.http.prepare_content("application/json")
+--         luci.http.write(jsonc.stringify(response))
+--         return
+--     end
+--
+--     -- Configure dnsmasq to use https-dns-proxy
+--     local success, err = pcall(function()
+--         uci:foreach("dhcp", "dnsmasq", function(s)
+--             uci:set("dhcp", s[".name"], "noresolv", "1")
+--
+--             -- Remove any existing server entries
+--             local servers = uci:get("dhcp", s[".name"], "server")
+--             if type(servers) == "table" then
+--                 for i=1, #servers do
+--                     uci:delete("dhcp", s[".name"], "server")
+--                 end
+--             elseif servers then
+--                 uci:delete("dhcp", s[".name"], "server")
+--             end
+--
+--             -- Add our DoH proxy as the DNS server - handle if add_list is not available
+--             if type(uci.add_list) == "function" then
+--                 uci:add_list("dhcp", s[".name"], "server", "127.0.0.1#5053")
+--             else
+--                 -- Alternative way to add list item
+--                 uci:set("dhcp", s[".name"], "server", "127.0.0.1#5053")
+--             end
+--         end)
+--     end)
+--
+--     if not success then
+--         response.message = "Failed to configure dnsmasq: " .. (err or "unknown error")
+--         luci.http.prepare_content("application/json")
+--         luci.http.write(jsonc.stringify(response))
+--         return
+--     end
+--
+--     uci:commit("dhcp")
+--     sys.exec("/etc/init.d/dnsmasq restart")
+--
+--     response.success = true
+--     response.message = "dnsmasq and https-dns-proxy configured. DNS is now served over HTTPS."
+--
+--     luci.http.prepare_content("application/json")
+--     luci.http.write(jsonc.stringify(response))
+-- end

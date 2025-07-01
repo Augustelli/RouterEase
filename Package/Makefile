@@ -11,7 +11,7 @@ run:
 
 clean:
 	docker stop python-client || true
-	docker stop web-client || true
+	docker stop webtop-client || true
 	docker rm python-client || true
 	docker stop ${CONTAINER} || true
 	docker rm ${CONTAINER} || true

@@ -229,6 +229,9 @@ _prepare_network() {
 _dnsmasq() {
   echo "* Add conf dnsmasq"
   docker exec -i $CONTAINER sh -c '
+    # Add DNS server configuration
+    echo "server=127.0.0.1#5053" > /tmp/dnsmasq.d/dns.conf
+    # Run dnsmasq with config
     /usr/sbin/dnsmasq -C /var/etc/dnsmasq.conf.cfg01411c
   '
 }
@@ -248,8 +251,8 @@ main() {
 	_reload_fw
 	_dnsmasq
 
-	./add_test_container.sh
-	./add_web_container.sh
+#	./add_test_container.sh
+#	./add_web_container.sh
 
 	echo "* ready"
 }
