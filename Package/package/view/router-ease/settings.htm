@@ -1,127 +1,167 @@
 <%+header%>
-<h2>RouterEase Login</h2>
-<form id="login-form" autocomplete="off">
-    <label for="username">Username:</label>
-    <input type="text" id="username" name="username" required/><br/><br/>
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password" required/><br/><br/>
-    <input type="submit" value="Login"/>
-</form>
-<div id="login-message"></div>
-<style>
-    #login-form {
-        max-width: 350px;
-        margin: 40px auto;
-        padding: 24px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        background: #fafbfc;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
+        <h2>RouterEase Login</h2>
+        <div id="content-container">
+            <!-- Login form will be shown/hidden here -->
+            <form id="login-form" autocomplete="off" style="display:none;">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required/><br/><br/>
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required/><br/><br/>
+                <input type="submit" value="Login"/>
+            </form>
 
-    #login-form label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: bold;
-    }
+            <!-- Authenticated UI will be shown/hidden here -->
+            <div id="authenticated-view" style="display:none;">
+                <h3>Welcome to RouterEase</h3>
+                <p>You are authenticated and your DNS-over-HTTPS is configured.</p>
+                <button id="logout-button">Logout</button>
+            </div>
+        </div>
 
-    #login-form input[type="text"],
-    #login-form input[type="password"] {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 16px;
-        border: 1px solid #bbb;
-        border-radius: 4px;
-    }
+        <div id="login-message"></div>
 
-    #login-form input[type="submit"] {
-        width: 100%;
-        padding: 10px;
-        background: #0073e6;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        font-size: 1em;
-        cursor: pointer;
-    }
+        <style>
+            #login-form, #authenticated-view {
+                max-width: 350px;
+                margin: 40px auto;
+                padding: 24px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                background: #fafbfc;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            }
 
-    #login-form input[type="submit"]:hover {
-        background: #005bb5;
-    }
+            #login-form label {
+                display: block;
+                margin-bottom: 6px;
+                font-weight: bold;
+            }
 
-    #login-message {
-        text-align: center;
-        margin-top: 16px;
-        font-weight: bold;
-    }
-</style>
-<script>
-    document.getElementById('login-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const msg = document.getElementById('login-message');
-        msg.textContent = 'Authenticating...';
-        msg.style.color = '';
+            #login-form input[type="text"],
+            #login-form input[type="password"] {
+                width: 100%;
+                padding: 8px;
+                margin-bottom: 16px;
+                border: 1px solid #bbb;
+                border-radius: 4px;
+            }
 
-        const params = new URLSearchParams();
-        params.append('username', document.getElementById('username').value);
-        params.append('password', document.getElementById('password').value);
-        params.append('client_id', 'routerease');
-        params.append('grant_type', 'password');
+            #login-form input[type="submit"], #logout-button {
+                width: 100%;
+                padding: 10px;
+                background: #0073e6;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                font-size: 1em;
+                cursor: pointer;
+            }
 
-        fetch('http://augustomancuso.com/routerease/user/realms/routerease/protocol/openid-connect/token', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params
-        })
-            .then(res => {
-                return res.json().then(data => ({ ok: res.ok, data }));
-            })
-            .then(({ ok, data }) => {
-                if (!ok) {
-                    throw new Error(data.error_description || 'Authentication failed.');
+            #login-form input[type="submit"]:hover, #logout-button:hover {
+                background: #005bb5;
+            }
+
+            #login-message {
+                text-align: center;
+                margin-top: 16px;
+                font-weight: bold;
+            }
+        </style>
+
+        <script>
+            // Check authentication state when page loads
+            document.addEventListener('DOMContentLoaded', checkAuthState);
+
+            function checkAuthState() {
+                const token = localStorage.getItem('routerease_token');
+                if (token) {
+                    showAuthenticatedView();
+                } else {
+                    showLoginView();
                 }
+            }
 
-                if (data.access_token) {
-                    localStorage.setItem('routerease_token', data.access_token);
-                    msg.textContent = 'Login successful! Setting up authenticated DNS...';
+            function showLoginView() {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('authenticated-view').style.display = 'none';
+            }
 
-                    return fetch('/cgi-bin/luci/admin/router-ease/configure_doh', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'text/plain'},
-                        body: data.access_token
+            function showAuthenticatedView() {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('authenticated-view').style.display = 'block';
+            }
+
+            document.getElementById('login-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const msg = document.getElementById('login-message');
+                msg.textContent = 'Authenticating...';
+                msg.style.color = '';
+
+                const params = new URLSearchParams();
+                params.append('username', document.getElementById('username').value);
+                params.append('password', document.getElementById('password').value);
+                params.append('client_id', 'routerease');
+                params.append('grant_type', 'password');
+
+                fetch('http://augustomancuso.com/routerease/user/realms/routerease/protocol/openid-connect/token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params
+                })
+                    .then(res => {
+                        return res.json().then(data => ({ ok: res.ok, data }));
+                    })
+                    .then(({ ok, data }) => {
+                        if (!ok) {
+                            throw new Error(data.error_description || 'Authentication failed.');
+                        }
+
+                        if (data.access_token) {
+                            localStorage.setItem('routerease_token', data.access_token);
+                            msg.textContent = 'Login successful! Setting up authenticated DNS...';
+
+                            return fetch('/cgi-bin/luci/admin/router-ease/configure_doh', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'text/plain'},
+                                body: data.access_token
+                            });
+                        } else {
+                            throw new Error('Authentication successful, but no access token was provided.');
+                        }
+                    })
+                    .then(res => {
+                        if (!res.ok) {
+                            return res.text().then(text => {
+                                throw new Error(text || `Configuration request failed with status ${res.status}`);
+                            });
+                        }
+                        return res.json();
+                    })
+                    .then(configData => {
+                        if (configData.success) {
+                            msg.style.color = 'green';
+                            msg.textContent = 'Login and DoH configuration successful!';
+                            showAuthenticatedView();
+                        } else {
+                            const errorDetails = configData.error_details ? ` (${configData.error_details})` : '';
+                            throw new Error((configData.message || 'Failed to configure DoH.') + errorDetails);
+                        }
+                    })
+                    .catch((err) => {
+                        msg.style.color = 'red';
+                        if (err instanceof SyntaxError) {
+                            msg.textContent = 'Error: Received an invalid response from the server.';
+                        } else {
+                            msg.textContent = 'Error: ' + err.message;
+                        }
                     });
-                } else {
-                    throw new Error('Authentication successful, but no access token was provided.');
-                }
-            })
-            .then(res => {
-                // This handles the response from the '/configure_doh' endpoint.
-                if (!res.ok) {
-                    // If the config request fails, get the error message from the body.
-                    return res.text().then(text => {
-                        throw new Error(text || `Configuration request failed with status ${res.status}`);
-                    });
-                }
-                // If successful, assume the body is JSON.
-                return res.json();
-            })
-            .then(configData => {
-                if (configData.success) {
-                    msg.style.color = 'green';
-                    msg.textContent = 'Login and DoH configuration successful!';
-                } else {
-                    const errorDetails = configData.error_details ? ` (${configData.error_details})` : '';
-                    throw new Error((configData.message || 'Failed to configure DoH.') + errorDetails);
-                }
-            })
-            .catch((err) => {
-                msg.style.color = 'red';
-                if (err instanceof SyntaxError) {
-                    msg.textContent = 'Error: Received an invalid response from the server.';
-                } else {
-                    msg.textContent = 'Error: ' + err.message;
-                }
             });
-    });
-</script>
-<%+footer%>
+
+            // Add logout functionality
+            document.getElementById('logout-button').addEventListener('click', function() {
+                localStorage.removeItem('routerease_token');
+                showLoginView();
+                document.getElementById('login-message').textContent = 'You have been logged out.';
+            });
+        </script>
+        <%+footer%>
