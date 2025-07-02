@@ -3,6 +3,7 @@ services:
     image: ghcr.io/router-ease/go-proxie:latest
     container_name: go-proxie
     restart: unless-stopped
+    build: .
     networks:
       - backend-network
     labels:
@@ -18,6 +19,8 @@ services:
   dns_db:
     image: postgres:alpine
     container_name: dns_db
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: dns
       POSTGRES_USER: dns
@@ -26,3 +29,4 @@ services:
       - ./dns-volumen:/var/lib/postgresql/data
     networks:
       - backend-network
+

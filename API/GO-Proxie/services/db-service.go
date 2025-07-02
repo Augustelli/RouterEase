@@ -13,13 +13,11 @@ func InitializeDB() *gorm.DB {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-
 	// AutoMigrate models
 	err = db.AutoMigrate(&User{}, &UserGroup{}, &Domain{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
-
 	return db
 }
 
@@ -94,4 +92,18 @@ func UpdateDomain(db *gorm.DB, domain *Domain) error {
 // DeleteDomain deletes a domain by ID
 func DeleteDomain(db *gorm.DB, id uint) error {
 	return db.Delete(&Domain{}, id).Error
+}
+
+func IsDomainBlockedForUUID(db *gorm.DB, uuid string, domain string) (bool, error) {
+	var count int64
+	err := db.Table("users").
+		Joins("INNER JOIN user_user_groups ON users.id = user_user_groups.user_id").
+		Joins("INNER JOIN user_groups ON user_user_groups.user_group_id = user_groups.id").
+		Joins("INNER JOIN domains ON user_groups.id = domains.user_group_id").
+		Where("users.uuid = ? AND domains.name = ?", uuid, domain).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

@@ -1,12 +1,11 @@
 package controllers
 
 import (
+	"GO-Proxie/services"
 	"encoding/json"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
-
-	"GO-Proxie/services"
-	"gorm.io/gorm"
 )
 
 func CreateDomainHandler(db *gorm.DB) http.HandlerFunc {

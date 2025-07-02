@@ -7,6 +7,12 @@ import (
 	"net/http"
 )
 
+func logRequest(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("request received: method=%s, path=%s, remote_addr=%s", r.Method, r.URL.Path, r.RemoteAddr)
+		next.ServeHTTP(w, r)
+	}
+}
 func main() {
 
 	db := services.InitializeDB()
@@ -28,8 +34,9 @@ func main() {
 	http.HandleFunc("/domains/update", controllers.UpdateDomainHandler(db))
 	http.HandleFunc("/domains/delete", controllers.DeleteDomainHandler(db))
 
-	http.HandleFunc("/dns-query", services.DNSResolveHandler)
-
+	http.HandleFunc("/dns-query", logRequest(func(w http.ResponseWriter, r *http.Request) {
+		services.DoHandler(w, r, db)
+	}))
 	log.Println("Starting proxy on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
