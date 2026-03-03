@@ -3,6 +3,7 @@ services:
     image: ghcr.io/router-ease/go-proxie:latest
     container_name: go-proxie
     restart: unless-stopped
+    build: .
     networks:
       - backend-network
     labels:

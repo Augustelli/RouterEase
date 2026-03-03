@@ -28,15 +28,6 @@ services:
       file: ./MACLookUp/mac-address-service-docker-compose.yml
       service: mac-lookup
 
-  jaeger:
-    extends:
-      file: ./Observability/Jaeger/jaeger-docker-compose.yaml
-      service: jaeger
-
-  prometheus:
-    extends:
-      file: ./Observability/Prometheus/prometheus-docker-compose.yaml
-      service: prometheus
 
   authentication:
     extends:

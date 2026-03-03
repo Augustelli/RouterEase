@@ -31,7 +31,7 @@ services:
       - "2001:2001"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`routerease.local`)"
+      - "traefik.http.routers.whoami.rule=Host(`augustomancuso.com`)"
       - "traefik.http.routers.whoami.entrypoints=https"
       - "traefik.http.routers.whoami.tls=true"
       - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
