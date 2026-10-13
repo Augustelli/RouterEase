@@ -1,33 +1,15 @@
-providers:
-  file:
-    filename: /etc/traefik/middlewares.yml
-  docker:
-    defaultRule: "Host(`{{ trimPrefix `/` .Name }}.docker.localhost`)"
 api:
-  insecure: true
-  dashboard: true
-
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: augusto.tomas.mancuso@gmail.com
-      storage: acme.json
-      httpChallenge:
-        entryPoint: http
-tracing:
-  otlp:
-    http:
-      endpoint: http://jaeger:4318/v1/traces
-accessLog:
-  filePath: /logs/access.log
-  bufferingSize: 100
-
+  dashboard: false
+providers:
+  docker:
+    endpoint: unix:///var/run/docker.sock
+    exposedByDefault: false
+    network: router-ease-api_edge
+log:
+  level: INFO
+accessLog: {}
 entryPoints:
-  http:
+  web:
     address: ":80"
-  https:
+  websecure:
     address: ":443"
-  dns-tcp:
-    address: ":53/tcp"
-  dns-udp:
-    address: ":53/udp"

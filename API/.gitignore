@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+Authentication/keycloak-data/
+GO-Proxie/dns-volumen/
+ReverseProxie/acme.json
+ReverseProxie/logs/
