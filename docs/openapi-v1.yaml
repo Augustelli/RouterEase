@@ -1,0 +1,48 @@
+openapi: 3.0.3
+info:
+  title: RouterEase policy API
+  version: 1.0.0
+paths:
+  /api/v1/routers:
+    get: {summary: List routers, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Create router, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/routers/{id}:
+    get: {summary: Get router, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    put: {summary: Update router, security: [{bearerAuth: []}], responses: {'204': {description: Updated}}}
+    delete: {summary: Delete router, security: [{bearerAuth: []}], responses: {'204': {description: Deleted}}}
+  /api/v1/routers/{id}/keys:
+    post: {summary: Issue router API key (secret returned once), security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/routers/{id}/keys/{keyId}:
+    delete: {summary: Revoke router API key, security: [{bearerAuth: []}], responses: {'204': {description: Revoked}}}
+  /api/v1/routers/{id}/devices:
+    get: {summary: List router devices, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Create device, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/routers/{id}/groups:
+    get: {summary: List device groups, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Create device group, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/policies:
+    get: {summary: List DNS policies, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Create DNS policy, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/policies/{id}:
+    get: {summary: Get policy, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    put: {summary: Update policy, security: [{bearerAuth: []}], responses: {'204': {description: Updated}}}
+    delete: {summary: Delete policy, security: [{bearerAuth: []}], responses: {'204': {description: Deleted}}}
+  /api/v1/policies/{id}/rules:
+    get: {summary: List rules, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Create rule, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/policies/{id}/assignments:
+    get: {summary: List assignments, security: [{bearerAuth: []}], responses: {'200': {description: OK}}}
+    post: {summary: Assign policy to device or group, security: [{bearerAuth: []}], responses: {'201': {description: Created}}}
+  /api/v1/router/leases:
+    post: {summary: Renew verified router-scoped leases, security: [{routerKey: []}], responses: {'204': {description: Updated}}}
+  /api/v1/router/dns-query:
+    post:
+      summary: Evaluate and forward an authenticated DNS-over-HTTPS query
+      security: [{routerKey: []}]
+      parameters: [{name: X-Router-Client-IP, in: header, required: true, schema: {type: string}}]
+      requestBody: {required: true, content: {application/dns-message: {schema: {type: string, format: binary}}}}
+      responses: {'200': {description: DNS wire response}, '403': {description: Unknown or stale lease}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+    routerKey: {type: apiKey, in: header, name: X-Router-API-Key}

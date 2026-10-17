@@ -1,0 +1,15 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/policies/{{policy_id}}/rules'
+order: 7000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "domain": "{{test_domain}}", "action": "BLOCK", "enabled": true }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("block rule created", () => pm.response.to.have.status(201));
+      pm.collectionVariables.set("rule_id", pm.response.json().id);

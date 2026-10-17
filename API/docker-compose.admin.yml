@@ -1,0 +1,26 @@
+services:
+  admin_web:
+    build:
+      context: ../Frontend/admin
+      args:
+        VITE_APP_BASE_PATH: /routerease/admin/
+        VITE_API_BASE_URL: /routerease/dns
+        VITE_OIDC_AUTHORITY: ${OIDC_ISSUER:?Set OIDC_ISSUER in .env}
+        VITE_OIDC_CLIENT_ID: ${OIDC_AUDIENCE:?Set OIDC_AUDIENCE in .env}
+    image: routerease/admin-web:dev
+    networks: [edge]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=router-ease-api_edge
+      - traefik.http.routers.admin-web-http.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/admin`)
+      - traefik.http.routers.admin-web-http.entrypoints=web
+      - traefik.http.routers.admin-web-https.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/admin`)
+      - traefik.http.routers.admin-web-https.entrypoints=websecure
+      - traefik.http.routers.admin-web-https.tls=true
+      - traefik.http.services.admin-web.loadbalancer.server.port=8080
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/routerease/admin/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped

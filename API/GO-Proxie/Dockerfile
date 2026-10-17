@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o go-proxie ./main.go
 
 # ---
 
-FROM alpine:latest
+FROM alpine:3.21
 
 WORKDIR /app
 

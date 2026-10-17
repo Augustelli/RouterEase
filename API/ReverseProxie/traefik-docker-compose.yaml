@@ -7,8 +7,8 @@ services:
       - "8080:8080"
       - "80:80"
       - "443:443"
-      - "5353:53/udp"
-      - "5353:53/tcp"
+      - "5453:53/udp"
+      - "5453:53/tcp"
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml
       - ./middlewares.yml:/etc/traefik/middlewares.yml
@@ -31,7 +31,7 @@ services:
       - "2001:2001"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`routerease.local`)"
+      - "traefik.http.routers.whoami.rule=Host(`routerease.com.ar`)"
       - "traefik.http.routers.whoami.entrypoints=https"
       - "traefik.http.routers.whoami.tls=true"
       - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"

@@ -1,66 +1,208 @@
 name: router-ease-api
+
 services:
   reverse_proxie:
-    extends:
-      file: ReverseProxie/traefik-docker-compose.yaml
-      service: reverse_proxie
+    image: traefik:v3.7
+    container_name: routerease-traefik
+    command: ["--configFile=/etc/traefik/traefik.yml"]
+    ports: ["80:80", "443:443"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./ReverseProxie/traefik.yml:/etc/traefik/traefik.yml:ro
+      - dashboard_auth:/auth:ro
+    depends_on:
+      dashboard_auth:
+        condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard-http.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/admin`)
+      - traefik.http.routers.dashboard-http.entrypoints=web
+      - traefik.http.routers.dashboard-http.service=api@internal
+      - traefik.http.routers.dashboard-http.middlewares=dashboard-auth,dashboard-redirect
+      - traefik.http.routers.dashboard-https.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/admin`)
+      - traefik.http.routers.dashboard-https.entrypoints=websecure
+      - traefik.http.routers.dashboard-https.tls=true
+      - traefik.http.routers.dashboard-https.service=api@internal
+      - traefik.http.routers.dashboard-https.middlewares=dashboard-auth,dashboard-redirect
+      - traefik.http.middlewares.dashboard-auth.basicauth.usersfile=/auth/users
+      - traefik.http.middlewares.dashboard-auth.basicauth.removeheader=true
+      - traefik.http.middlewares.dashboard-redirect.redirectregex.regex=^https?://dev\.routerease\.com\.ar/admin/?$$
+      - traefik.http.middlewares.dashboard-redirect.redirectregex.replacement=https://dev.routerease.com.ar/admin/dashboard/
+      - traefik.http.middlewares.dashboard-redirect.redirectregex.permanent=true
+    networks: [edge]
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
 
-  whoami:
-    extends:
-      file: ReverseProxie/traefik-docker-compose.yaml
-      service: whoami
+  dashboard_auth:
+    image: httpd:2.4.63-alpine
+    container_name: routerease-dashboard-auth
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - >-
+        umask 077;
+        htpasswd -cbB /auth/users "$$TRAEFIK_DASHBOARD_USER" "$$TRAEFIK_DASHBOARD_PASSWORD"
+    environment:
+      TRAEFIK_DASHBOARD_USER: ${TRAEFIK_DASHBOARD_USER:-admin}
+      TRAEFIK_DASHBOARD_PASSWORD: ${TRAEFIK_DASHBOARD_PASSWORD:-${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}}
+    volumes: [dashboard_auth:/auth]
+    restart: "no"
+    security_opt: [no-new-privileges:true]
 
-
-  dns:
-    extends:
-      file: DNS/powerdns-docker-compose.yaml
-      service: dns
-
-
-  go-proxie:
-    extends:
-      file: GO-Proxie/go-proxie-docker-compose.yaml
-      service: go-proxie
-
-
-  mac-lookup:
-    extends:
-      file: ./MACLookUp/mac-address-service-docker-compose.yml
-      service: mac-lookup
-
-  jaeger:
-    extends:
-      file: ./Observability/Jaeger/jaeger-docker-compose.yaml
-      service: jaeger
-
-  prometheus:
-    extends:
-      file: ./Observability/Prometheus/prometheus-docker-compose.yaml
-      service: prometheus
-
-  authentication:
-    extends:
-      file: ./Authentication/keycloak-docker-compose.yaml
-      service: authentication
-
-  auth_db:
-    extends:
-      file: ./Authentication/keycloak-docker-compose.yaml
-      service: auth_db
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      TUNNEL_METRICS: 0.0.0.0:2000
+    depends_on:
+      reverse_proxie:
+        condition: service_started
+    # The remotely-managed tunnel currently targets http://localhost:80.
+    # Sharing Traefik's network namespace makes that origin resolve to Traefik,
+    # rather than to the cloudflared process itself.
+    network_mode: service:reverse_proxie
+    restart: unless-stopped
+    profiles: [cloudflare]
+    security_opt: [no-new-privileges:true]
 
   dns_db:
-    extends:
-      file: ./GO-Proxie/go-proxie-docker-compose.yaml
-      service: dns_db
+    image: postgres:16.8-alpine
+    container_name: routerease-policy-db
+    environment:
+      POSTGRES_DB: ${POLICY_DB_NAME:-dns}
+      POSTGRES_USER: ${POLICY_DB_USER:-dns}
+      POSTGRES_PASSWORD: ${POLICY_DB_PASSWORD:?Set POLICY_DB_PASSWORD in .env}
+    volumes: [policy_db_data:/var/lib/postgresql/data]
+    networks: [services]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  auth_db:
+    image: postgres:16.8-alpine
+    container_name: routerease-keycloak-db
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+    volumes: [keycloak_db_data:/var/lib/postgresql/data]
+    networks: [services]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  go-proxie:
+    build: ./GO-Proxie
+    image: routerease/go-proxie:dev
+    container_name: routerease-go-proxie
+    environment:
+      DATABASE_URL: host=dns_db user=${POLICY_DB_USER:-dns} password=${POLICY_DB_PASSWORD:?Set POLICY_DB_PASSWORD in .env} dbname=${POLICY_DB_NAME:-dns} port=5432 sslmode=disable
+      DNS_UPSTREAM: dns:53
+      OIDC_ISSUER: ${OIDC_ISSUER:?Set OIDC_ISSUER in .env}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:?Set OIDC_AUDIENCE in .env}
+    depends_on:
+      dns_db:
+        condition: service_healthy
+    networks: [edge, services]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=router-ease-api_edge
+      - traefik.http.routers.api-http.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/dns`)
+      - traefik.http.routers.api-http.entrypoints=web
+      - traefik.http.routers.api-https.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/dns`)
+      - traefik.http.routers.api-https.entrypoints=websecure
+      - traefik.http.routers.api-https.tls=true
+      - traefik.http.services.api.loadbalancer.server.port=8080
+      - traefik.http.middlewares.api-strip.stripprefix.prefixes=/routerease/dns
+      - traefik.http.routers.api-http.middlewares=api-strip
+      - traefik.http.routers.api-https.middlewares=api-strip
+    restart: unless-stopped
+
+  mac-lookup:
+    build: ./MACLookUp
+    image: routerease/mac-lookup:dev
+    container_name: routerease-mac-lookup
+    networks: [edge]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=router-ease-api_edge
+      - traefik.http.routers.mac-http.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/mac-address`)
+      - traefik.http.routers.mac-http.entrypoints=web
+      - traefik.http.routers.mac-https.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/mac-address`)
+      - traefik.http.routers.mac-https.entrypoints=websecure
+      - traefik.http.routers.mac-https.tls=true
+      - traefik.http.services.mac-lookup.loadbalancer.server.port=8080
+      - traefik.http.middlewares.mac-strip.stripprefix.prefixes=/routerease/mac-address
+      - traefik.http.routers.mac-http.middlewares=mac-strip
+      - traefik.http.routers.mac-https.middlewares=mac-strip
+    restart: unless-stopped
+
+  authentication:
+    image: quay.io/keycloak/keycloak:26.0.5
+    container_name: routerease-keycloak
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://auth_db:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME: https://dev.routerease.com.ar/routerease/user
+      KC_HTTP_RELATIVE_PATH: /routerease/user
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: "false"
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    networks: [edge, services]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=router-ease-api_edge
+      - traefik.http.routers.keycloak-http.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/user`)
+      - traefik.http.routers.keycloak-http.entrypoints=web
+      - traefik.http.routers.keycloak-https.rule=Host(`dev.routerease.com.ar`) && PathPrefix(`/routerease/user`)
+      - traefik.http.routers.keycloak-https.entrypoints=websecure
+      - traefik.http.routers.keycloak-https.tls=true
+      - traefik.http.services.keycloak.loadbalancer.server.port=8080
+    restart: unless-stopped
+
+  dns:
+    image: powerdns/pdns-recursor-52@sha256:81c49604b3afdd0f7f3e8e5d3119d0fdcc4dcf7f80401d1bc2469692f2949be6
+    container_name: routerease-dns
+    environment:
+      PDNS_RECURSOR_ALLOW_FROM: 172.16.0.0/12
+    volumes: [./DNS/pdns-recursor.conf:/etc/powerdns-recursor/recursor.conf:ro]
+    networks: [services]
+    healthcheck:
+      test: ["CMD", "rec_control", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
 
 networks:
-  openwrt-wan:
-  backend-network:
-    driver: bridge
-    external: true
+  edge:
     ipam:
       config:
-        - subnet: 172.20.0.0/24
+        - subnet: 172.30.0.0/24
+  services:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
 
-
-# docker network create --subnet=172.20.0.0/24 backend-network
+volumes:
+  policy_db_data:
+  keycloak_db_data:
+  dashboard_auth:

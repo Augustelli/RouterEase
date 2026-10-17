@@ -1,0 +1,18 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/router/leases'
+order: 15000
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: X-Router-API-Key
+    value: '{{router_api_key}}'
+body:
+  type: json
+  content: |-
+    { "leases": [{ "device_id": "{{child_device_id}}", "ip": "{{child_ip}}", "expires_in_seconds": 300 }] }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("revoked key is rejected", () => pm.response.to.have.status(401));

@@ -1,0 +1,12 @@
+# Punto de entrada del stack RouterEase.
+#
+# Los archivos incluidos conservan API/ como directorio de proyecto: de ese modo
+# los build contexts, los mounts y API/.env siguen siendo los mismos que al
+# ejecutar Compose desde API/.
+name: router-ease-api
+
+include:
+  - path:
+      - ./API/docker-compose.yml
+      - ./API/docker-compose.admin.yml
+    project_directory: ./API

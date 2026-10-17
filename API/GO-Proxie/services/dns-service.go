@@ -1,104 +1,101 @@
 package services
 
 import (
-	"fmt"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/miekg/dns"
+	"context"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/miekg/dns"
+	"gorm.io/gorm"
 )
 
-// TODO REFACTORING: Move blocklists and userGroups to a configuration file or database
-var blocklists = map[string][]string{
-	"ParentalControl": {"adultsite.com", "explicitcontent.com"},
-	"Adblocking":      {"tracker.com", "ads.com"},
-	"Common":          {}, // No filtering
+const maxDNSMessageBytes = 65535
+
+type DNSHandler struct {
+	DB       *gorm.DB
+	Engine   *PolicyEngine
+	Upstream string
 }
 
-// Group mapping (UUID -> Groups)
-var userGroups = map[string][]string{
-	"07a5b831-2aab-4d57-8517-41fc29195f78": {"ParentalControl", "Adblocking"},
-	"54eed05e-2947-42cd-a519-9fe14455aade": {"Adblocking"},
-	"4089f0e0-cbf2-4652-bedb-cddad94a9448": {"Common"},
-}
-
-func DoHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract JWT from Authorization header
-	authHeader := r.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+func (h DNSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/dns-message") {
+		http.Error(w, "POST application/dns-message required", http.StatusBadRequest)
 		return
 	}
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-
-	// Parse JWT without validation
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return nil, nil // No validation, return nil for the key
-	})
-
-	// Extract UUID (sub claim)
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-		return
+	rawKey := r.Header.Get("X-Router-API-Key")
+	if rawKey == "" {
+		rawKey = strings.TrimPrefix(r.Header.Get("Authorization"), "Router ")
 	}
-	uuid, ok := claims["sub"].(string)
-	if !ok {
-		http.Error(w, "UUID not found in token", http.StatusUnauthorized)
-		return
-	}
-
-	// Map UUID to groups
-	groups, exists := userGroups[uuid]
-	if !exists {
-		http.Error(w, "User groups not found", http.StatusForbidden)
-		return
-	}
-
-	// Combine blocklists from all groups
-	blocklist := []string{}
-	for _, group := range groups {
-		blocklist = append(blocklist, blocklists[group]...)
-	}
-
-	// Apply filtering based on combined blocklist
-	query := r.URL.Query().Get("name") // Extract DNS query name
-	for _, blockedDomain := range blocklist {
-		if strings.Contains(query, blockedDomain) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(fmt.Sprintf("%s\t0\tIN\tA\tNXDOMAIN\n", query)))
-			return
-		}
-	}
-
-	// Forward request to PowerDNS
-	answers, err := queryPowerDNS(query)
+	key, err := AuthenticateRouterKey(h.DB, rawKey, "dns:query")
 	if err != nil {
-		http.Error(w, "Error forwarding request", http.StatusInternalServerError)
+		http.Error(w, "router authorization required", http.StatusUnauthorized)
 		return
 	}
-
-	// Relay DNS response back to client
-	w.WriteHeader(http.StatusOK)
-	for _, answer := range answers {
-		_, _ = w.Write([]byte(answer.String() + "\n"))
+	clientIP := r.Header.Get("X-Router-Client-IP")
+	if net.ParseIP(clientIP) == nil {
+		http.Error(w, "valid X-Router-Client-IP required", http.StatusBadRequest)
+		return
 	}
+	device, err := h.Engine.ResolveDevice(r.Context(), key.RouterID, clientIP)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		http.Error(w, "unknown or expired router lease", http.StatusForbidden)
+		return
+	}
+	if err != nil {
+		http.Error(w, "identity store unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxDNSMessageBytes))
+	if err != nil {
+		http.Error(w, "invalid DNS message", http.StatusBadRequest)
+		return
+	}
+	request := new(dns.Msg)
+	if err := request.Unpack(body); err != nil || len(request.Question) != 1 {
+		http.Error(w, "one valid DNS question required", http.StatusBadRequest)
+		return
+	}
+	decision, evaluateErr := h.Engine.Evaluate(r.Context(), device.ID, request.Question[0].Name)
+	if evaluateErr == nil && decision.Decision == DecisionBlock {
+		response := new(dns.Msg)
+		response.SetReply(request)
+		response.Rcode = dns.RcodeNameError // documented NXDOMAIN policy response
+		h.writeDNS(w, response)
+		return
+	}
+	// DB/cache errors intentionally fail open after authenticated identity has
+	// been established; the resolver itself still returns a clear failure.
+	response, err := h.queryPowerDNS(r.Context(), request)
+	if err != nil {
+		http.Error(w, "resolver unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	h.writeDNS(w, response)
 }
 
-func queryPowerDNS(domain string) ([]dns.RR, error) {
-	// Create a new DNS message
-	m := new(dns.Msg)
-	m.SetQuestion(dns.Fqdn(domain), dns.TypeA) // Query for A record
-
-	// Set up the DNS client
-	c := new(dns.Client)
-
-	// Send the query to the PowerDNS server
-	r, _, err := c.Exchange(m, "dns:53") // PowerDNS server address
-	if err != nil {
-		return nil, fmt.Errorf("failed to query PowerDNS: %v", err)
+func (h DNSHandler) queryPowerDNS(ctx context.Context, request *dns.Msg) (*dns.Msg, error) {
+	upstream := h.Upstream
+	if upstream == "" {
+		upstream = "dns:53"
 	}
+	response, _, err := (&dns.Client{Timeout: 2 * time.Second}).ExchangeContext(ctx, request, upstream)
+	return response, err
+}
+func (h DNSHandler) writeDNS(w http.ResponseWriter, response *dns.Msg) {
+	body, err := response.Pack()
+	if err != nil {
+		http.Error(w, "failed to encode DNS response", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/dns-message")
+	_, _ = w.Write(body)
+}
 
-	// Return the response answers
-	return r.Answer, nil
+// DNSResolveHandler is intentionally retained only as a compatibility stub.
+func DNSResolveHandler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "use authenticated /api/v1/router/dns-query", http.StatusGone)
 }

@@ -1,0 +1,17 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/routers'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "name": "Postman lab router" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("router created", () => pm.response.to.have.status(201));
+      pm.collectionVariables.set("router_id", pm.response.json().id);

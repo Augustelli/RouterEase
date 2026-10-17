@@ -1,0 +1,9 @@
+$kind: http-request
+method: DELETE
+url: '{{base_url}}/api/v1/routers/{{router_id}}/keys/{{active_key_id}}'
+order: 14000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("router key revoked", () => pm.response.to.have.status(204));

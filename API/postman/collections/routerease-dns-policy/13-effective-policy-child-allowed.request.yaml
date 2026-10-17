@@ -1,0 +1,12 @@
+$kind: http-request
+method: GET
+url: '{{base_url}}/api/v1/devices/{{child_device_id}}/effective-policy?domain={{test_domain}}'
+order: 13000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("updated child policy allows domain", () => {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().decision).to.eql("ALLOW");
+      });

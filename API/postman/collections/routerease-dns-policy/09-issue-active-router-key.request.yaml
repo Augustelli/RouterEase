@@ -1,0 +1,17 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/routers/{{router_id}}/keys'
+order: 9000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "scopes": ["dns:query", "inventory:write"] }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("router key issued", () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.collectionVariables.set("active_key_id", body.key.id);
+      pm.environment.set("router_api_key", body.api_key);

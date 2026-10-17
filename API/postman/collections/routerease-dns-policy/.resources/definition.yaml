@@ -1,0 +1,33 @@
+$kind: collection
+name: RouterEase DNS Policy Lab
+description: Admin and router API regression flow. Run folders in order; credentials stay in the selected environment.
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{admin_access_token}}'
+variables:
+  - key: routerease_host
+    value: 'dev.routerease.com.ar'
+  - key: router_id
+    value: ''
+  - key: child_device_id
+    value: ''
+  - key: adult_device_id
+    value: ''
+  - key: group_id
+    value: ''
+  - key: policy_id
+    value: ''
+  - key: rule_id
+    value: ''
+  - key: active_key_id
+    value: ''
+  - key: router_api_key
+    value: ''
+scripts:
+  - type: http:beforeRequest
+    language: text/javascript
+    code: |-
+      const host = pm.variables.get("routerease_host");
+      if (host) pm.request.headers.upsert({ key: "Host", value: host });

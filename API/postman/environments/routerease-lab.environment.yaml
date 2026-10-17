@@ -1,0 +1,33 @@
+name: RouterEase lab
+values:
+  - key: base_url
+    value: 'http://127.0.0.1/routerease/dns'
+    enabled: true
+    type: default
+    description: Traefik URL. For direct Go use http://127.0.0.1:8080 and clear routerease_host.
+  - key: routerease_host
+    value: 'dev.routerease.com.ar'
+    enabled: true
+    type: default
+  - key: admin_access_token
+    value: ''
+    enabled: false
+    type: secret
+    description: Short-lived Keycloak access token with routerease-admin.
+  - key: router_api_key
+    value: ''
+    enabled: false
+    type: secret
+    description: Set at runtime by the Issue active router key request; never commit a value.
+  - key: child_ip
+    value: '192.0.2.10'
+    enabled: true
+    type: default
+  - key: adult_ip
+    value: '192.0.2.11'
+    enabled: true
+    type: default
+  - key: test_domain
+    value: 'example.org'
+    enabled: true
+    type: default

@@ -1,0 +1,14 @@
+$kind: http-request
+method: PUT
+url: '{{base_url}}/api/v1/policies/{{policy_id}}/rules/{{rule_id}}'
+order: 12000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "domain": "{{test_domain}}", "action": "ALLOW", "enabled": true }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("rule update invalidates policy cache", () => pm.response.to.have.status(204));

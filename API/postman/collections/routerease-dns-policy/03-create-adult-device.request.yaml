@@ -1,0 +1,15 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/routers/{{router_id}}/devices'
+order: 3000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "name": "Adult device", "mac_address": "02:00:00:00:00:02" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("adult created", () => pm.response.to.have.status(201));
+      pm.collectionVariables.set("adult_device_id", pm.response.json().id);

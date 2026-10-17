@@ -1,0 +1,9 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/groups/{{group_id}}/devices/{{child_device_id}}'
+order: 5000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("membership created", () => pm.response.to.have.status(204));

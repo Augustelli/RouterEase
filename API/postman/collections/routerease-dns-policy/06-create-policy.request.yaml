@@ -1,0 +1,15 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/policies'
+order: 6000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "name": "Children block policy", "description": "Postman scenario", "enabled": true, "default_action": "ALLOW" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("policy created", () => pm.response.to.have.status(201));
+      pm.collectionVariables.set("policy_id", pm.response.json().id);

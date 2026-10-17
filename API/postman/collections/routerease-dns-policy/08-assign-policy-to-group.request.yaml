@@ -1,0 +1,14 @@
+$kind: http-request
+method: POST
+url: '{{base_url}}/api/v1/policies/{{policy_id}}/assignments'
+order: 8000
+headers: [{key: Content-Type, value: application/json}]
+body:
+  type: json
+  content: |-
+    { "group_id": "{{group_id}}", "priority": 10 }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("policy assigned", () => pm.response.to.have.status(201));
